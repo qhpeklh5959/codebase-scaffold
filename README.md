@@ -20,7 +20,6 @@ your-project/
 │       ├── gen-command.md
 │       ├── import-dep.md
 │       ├── shadow.md
-│       ├── restore.md
 │       ├── rollback.md
 │       └── reflect.md
 └── .agent/
@@ -89,22 +88,19 @@ cp -r /path/to/codebase-agent/.agent .
 # 追踪调用链（同时显示谁调用了它）
 /trace UserService.createUser --callers
 
-# 遮蔽一个方法（替换为 stub，原始代码自动备份）
+# 遮蔽一个方法（替换为 stub，原始代码自动备份 + 生成功能描述）
 /shadow UserService.createUser --mode throw --reason "隔离排查依赖问题"
 
 # 遮蔽整个类
 /shadow PaymentService --mode log
 
-# 查看当前所有遮蔽状态
-/restore --list
+# 恢复被遮蔽的方法（extend 自动检测 shadow 状态，读功能描述重写）
+/extend 实现 UserService.createUser
 
-# 恢复被遮蔽的方法（agent 重写）
-/restore UserService.createUser
-
-# 直接回滚到原始代码（跳过 agent 重写）
+# 直接回滚到原始备份代码（跳过 agent 重写）
 /rollback UserService.createUser
 
-# 查看所有可回滚的项
+# 查看所有遮蔽状态 / 可回滚项
 /rollback --list
 
 # 更新知识库（建议每次任务后运行）
@@ -117,13 +113,12 @@ cp -r /path/to/codebase-agent/.agent .
 |------|------|
 | `CLAUDE.md` | Agent 行为规则（前置检查、重试规则、输出规范） |
 | `.claude/commands/bootstrap.md` | 分析代码库，初始化 `.agent/refs/` |
-| `.claude/commands/extend.md` | 实现方法或类 |
+| `.claude/commands/extend.md` | 实现方法或类；若目标处于 shadow 状态，自动切换为恢复模式 |
 | `.claude/commands/test-gen.md` | 生成测试，达到指定覆盖率 |
 | `.claude/commands/trace.md` | 静态调用链追踪 |
 | `.claude/commands/gen-command.md` | 扩展 agent 自身：自动建议或按需生成定制 command |
 | `.claude/commands/import-dep.md` | 导入依赖库的公共 API 描述，建立依赖接口层 |
 | `.claude/commands/shadow.md` | 遮蔽方法/类为 stub，备份原始代码 + 生成功能描述 |
-| `.claude/commands/restore.md` | agent 重写被遮蔽的方法/类，读功能描述不读备份代码 |
 | `.claude/commands/rollback.md` | 直接将备份代码覆写回代码库，绕过 agent 重写 |
 | `.claude/commands/reflect.md` | 更新知识库，总结经验 |
 | `.agent/refs/CODEBASE.md` | 代码库概览（由 bootstrap 生成） |
@@ -148,7 +143,7 @@ cp -r /path/to/codebase-agent/.agent .
 
 - `bootstrap` 生成的 refs 是起点，会随使用逐渐完善
 - `trace` 是纯静态分析，接口多态场景会标注 `[dynamic]` 提示
-- `shadow` / `restore` / `rollback` 具有依赖关系：必须先 shadow 才能 restore 或 rollback；restore 之后仍可 rollback（备份默认保留）
-- `restore` 使用 agent 重写，与当前代码库设计语言一致但结果可能与原始有差异；`rollback` 直接复原原始代码，结果确定但可能与当前代码库存在兼容性问题
+- `shadow` / `extend`（恢复模式） / `rollback` 具有依赖关系：必须先 shadow 才能触发恢复或回滚；extend 恢复后仍可 rollback（备份默认保留）
+- `extend` 恢复模式使用 agent 重写，设计语言一致但结果可能与原始有差异；`rollback` 直接复原原始代码，结果确定但可能与当前代码库存在兼容性问题
 - 建议将 `.agent/refs/` 提交到版本控制，团队共享知识库；`.agent/shadows/` 按需决定是否提交
 - `failures.md` 尤其值得保留，记录了代码库特有的"坑"

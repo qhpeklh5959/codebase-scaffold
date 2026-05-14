@@ -1,9 +1,9 @@
 # Shadow 状态记录
 
-本文件由以下 skill 共同维护，是 shadow/restore/rollback 之间唯一共享的状态：
+本文件由以下 skill 共同维护，是 shadow/extend/rollback 之间唯一共享的状态：
 
 - `/shadow` 写入 Active
-- `/restore` 将 Active 移动到 Restored
+- `/extend`（Shadow 恢复模式）将 Active 移动到 Restored
 - `/rollback` 将 Active 或 Restored 移动到 Rolled Back
 
 **请勿手动修改。**
@@ -17,7 +17,7 @@
 - **目标**: ClassName.methodName 或 ClassName（整个类）
 - **类型**: method | class
 - **原始文件**: 相对于代码库根目录的路径
-- **备份路径**: .agent/shadows/SHADOW_ID/original_filename（rollback 可读；restore 不可读）
+- **备份路径**: .agent/shadows/SHADOW_ID/original_filename（rollback 可读；extend 不可读）
 - **功能描述**: .agent/shadows/SHADOW_ID/description.md（restore/rollback 均可读）
 - **遮蔽模式**: no-op | throw | log-and-return-null
 - **遮蔽时间**: YYYY-MM-DD
@@ -27,7 +27,7 @@
 
 ## Restored（agent 重写后）
 
-<!-- restore 完成后从 Active 移动到此，rollback 可继续从此回滚
+<!-- restore 完成后从 Active 移动到此（由 /extend 的 Shadow 恢复模式写入），rollback 可继续从此回滚
 ### SHADOW_ID（已恢复）
 - ...原有字段保留...
 - **恢复时间**: YYYY-MM-DD
