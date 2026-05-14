@@ -17,6 +17,7 @@ your-project/
 │       ├── extend.md
 │       ├── test-gen.md
 │       ├── trace.md
+│       ├── gen-command.md
 │       ├── import-dep.md
 │       ├── shadow.md
 │       ├── restore.md
@@ -26,7 +27,8 @@ your-project/
     ├── refs/
     │   ├── failures.md           ← 从本脚手架复制（空模板）
     │   ├── shadow-state.md       ← 从本脚手架复制（空模板）
-    │   └── deps.md               ← 从本脚手架复制（空模板）
+    │   ├── deps.md               ← 从本脚手架复制（空模板）
+    │   └── command-suggestions.md ← 从本脚手架复制（空模板）
     ├── shadows/                  ← 由 /shadow 自动创建，存放原始代码备份
     └── refs/deps/                ← 由 /import-dep 自动创建，存放依赖库接口描述
 ```
@@ -62,6 +64,18 @@ cp -r /path/to/codebase-agent/.agent .
 
 # 为某个文件生成测试，目标覆盖率 85%
 /test-gen src/service/UserService.java 85
+
+# 查看 agent 自动建议的定制 command
+/gen-command --list
+
+# 分析代码库，主动生成建议（不主动调用时也会由 bootstrap/reflect 触发）
+/gen-command --suggest
+
+# 生成某条建议
+/gen-command --create gen-controller
+
+# 直接描述需求，生成定制 command
+/gen-command 为每个新 API 接口生成 Controller + Service + Repository 三件套骨架
 
 # 导入另一个代码库的公共 API 作为依赖描述
 /import-dep ../codebase-a --name codebase-a
@@ -106,6 +120,7 @@ cp -r /path/to/codebase-agent/.agent .
 | `.claude/commands/extend.md` | 实现方法或类 |
 | `.claude/commands/test-gen.md` | 生成测试，达到指定覆盖率 |
 | `.claude/commands/trace.md` | 静态调用链追踪 |
+| `.claude/commands/gen-command.md` | 扩展 agent 自身：自动建议或按需生成定制 command |
 | `.claude/commands/import-dep.md` | 导入依赖库的公共 API 描述，建立依赖接口层 |
 | `.claude/commands/shadow.md` | 遮蔽方法/类为 stub，备份原始代码 + 生成功能描述 |
 | `.claude/commands/restore.md` | agent 重写被遮蔽的方法/类，读功能描述不读备份代码 |
@@ -118,6 +133,7 @@ cp -r /path/to/codebase-agent/.agent .
 | `.agent/refs/failures.md` | 失败记录，持续更新 |
 | `.agent/refs/deps.md` | 依赖库注册表（由 /import-dep 维护） |
 | `.agent/refs/deps/{name}/` | 依赖库的接口描述（symbols + 可选 conventions） |
+| `.agent/refs/command-suggestions.md` | 定制 command 建议清单（由 bootstrap/reflect/gen-command 写入） |
 | `.agent/refs/shadow-state.md` | 遮蔽状态记录（Active / Restored / Rolled Back） |
 | `.agent/shadows/` | 原始代码备份（由 /shadow 自动创建） |
 
