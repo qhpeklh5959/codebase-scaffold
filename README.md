@@ -94,6 +94,12 @@ cp -r /path/to/codebase-agent/.agent .
 # 遮蔽整个类
 /shadow PaymentService --mode log
 
+# 遮蔽整个子包
+/shadow com.example.service --mode no-op
+
+# 遮蔽子包，同时中性化所有调用方的依赖（可选）
+/shadow com.example.service --mode no-op --strip-callers
+
 # 恢复被遮蔽的方法（extend 自动检测 shadow 状态，读功能描述重写）
 /extend 实现 UserService.createUser
 
@@ -113,13 +119,13 @@ cp -r /path/to/codebase-agent/.agent .
 |------|------|
 | `CLAUDE.md` | Agent 行为规则（前置检查、重试规则、输出规范） |
 | `.claude/commands/bootstrap.md` | 分析代码库，初始化 `.agent/refs/` |
-| `.claude/commands/extend.md` | 实现方法或类；若目标处于 shadow 状态，自动切换为恢复模式 |
+| `.claude/commands/extend.md` | 实现方法或类；若目标处于 shadow 状态，自动切换为恢复模式（支持包级） |
 | `.claude/commands/test-gen.md` | 生成测试，达到指定覆盖率 |
 | `.claude/commands/trace.md` | 静态调用链追踪 |
 | `.claude/commands/gen-command.md` | 扩展 agent 自身：自动建议或按需生成定制 command |
 | `.claude/commands/import-dep.md` | 导入依赖库的公共 API 描述，建立依赖接口层 |
-| `.claude/commands/shadow.md` | 遮蔽方法/类为 stub，备份原始代码 + 生成功能描述 |
-| `.claude/commands/rollback.md` | 直接将备份代码覆写回代码库，绕过 agent 重写 |
+| `.claude/commands/shadow.md` | 遮蔽方法/类/子包为 stub；可选 `--strip-callers` 同时中性化调用方 |
+| `.claude/commands/rollback.md` | 直接将备份代码覆写回代码库，支持包级和调用方一并回滚 |
 | `.claude/commands/reflect.md` | 更新知识库，总结经验 |
 | `.agent/refs/CODEBASE.md` | 代码库概览（由 bootstrap 生成） |
 | `.agent/refs/symbols.md` | 关键符号索引（由 bootstrap 生成） |

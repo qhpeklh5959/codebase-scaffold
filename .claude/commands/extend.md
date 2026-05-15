@@ -22,28 +22,38 @@
 
 **Shadow 感知**：读取 `.agent/refs/shadow-state.md`，检查目标是否存在于 Active 节：
 
-- **若在 Active 中**：进入 Shadow 恢复模式（见 Step 2A）
+- **若在 Active 中**：读取其 `**类型**` 字段
+  - `method` / `class` → Step 2A（单目标恢复）
+  - `package` → Step 2A-pkg（包级恢复，逐文件处理）
 - **若不在 Active 中**：正常实现模式（见 Step 2B）
 
-## Step 2A：Shadow 恢复模式（目标当前为 stub）
+## Step 2A：Shadow 恢复模式 — 方法 / 类
 
-从 shadow-state.md 的 Active 记录中读取：
+从 shadow-state.md 的 Active 记录中读取 `SHADOW_ID`，然后：
 
-- `SHADOW_ID`
-- 功能描述路径：`.agent/shadows/{SHADOW_ID}/description.md`
-
-**读取 description.md 作为首要需求输入**（不读取 `original_*` 备份代码）：
-
+**读取 `.agent/shadows/{SHADOW_ID}/description.md` 作为首要需求输入**（不读取原始代码备份）：
 - 理解方法/类的整体职责、输入输出语义、执行流程、副作用、异常场景
 
-然后补充以下上下文：
+补充上下文：
 
 1. **接口/抽象类契约**：从 symbols.md 定位目标实现的接口，读取当前签名和文档注释
 2. **调用方（call sites）**：用 Grep 找 2~3 处典型调用点，理解返回值使用方式和异常预期
 3. **同类实现**：若有其他同接口的实现类，读取 1 个理解当前惯用结构
 4. **相关测试**：用 Glob/Grep 查找对应测试文件，补充边界条件理解
 
-目标写入位置：当前文件中含 `SHADOWED:` 标记的区域（方法体 stub 的范围）。
+目标写入位置：当前文件中含 `SHADOWED:` 标记的区域。
+
+**若 shadow 时启用了 `--strip-callers`**：description.md 读完后，还需读取 `.agent/shadows/{SHADOW_ID}/callers/strip-description.md`，了解哪些调用方被中性化了——恢复实现后，这些调用方中的 `[CALLER-STRIPPED]` 注释可作为提示，告知哪些地方需要恢复调用（但调用方的恢复不在 extend 范围内，完成输出时提示用户手动或用 `/rollback` 处理）。
+
+## Step 2A-pkg：Shadow 恢复模式 — 子包
+
+从 shadow-state.md 的 Active 记录中读取：
+- `SHADOW_ID`
+- `**包含文件**` 列表（所有被 stub 的文件）
+
+读取 `.agent/shadows/{SHADOW_ID}/description.md`，了解整个包的职责和各文件功能。
+
+**逐文件恢复**：对"包含文件"列表中的每个文件，依次执行 Step 2A 的单文件恢复流程（读描述 → 补上下文 → 生成实现 → 写入 → 编译验证）。编译验证在**所有文件处理完毕后统一执行一次**，不逐文件单独验证（避免中间态编译失败干扰）。
 
 ## Step 2B：正常实现模式（目标为新实现）
 
@@ -102,9 +112,14 @@ Shadow 恢复模式下，3 次失败时 stub 保持原样（不破坏现有状�
 - **不确定项**: （若有无法确认的逻辑，明确列出）
 ```
 
+包级恢复时，"恢复方式"注明"逐文件恢复，共 N 个文件"。
+
 ## 完成输出
 
 - 生成/修改的文件列表（路径 + 修改描述）
-- 若是 Shadow 恢复模式：说明推断依据来源和不确定项（若有），提示备份仍保留在 `.agent/shadows/{SHADOW_ID}/`
+- 若是 Shadow 恢复模式：
+  - 推断依据来源和不确定项（若有）
+  - 备份仍保留在 `.agent/shadows/{SHADOW_ID}/`
+  - 若存在被中性化的调用方（`strip-callers`），提示用户：调用方中的 `[CALLER-STRIPPED]` 注释标记了被中性化的调用点，可手动恢复或运行 `/rollback {TARGET}` 一键还原调用方
 - 若新增了注册步骤，说明在哪里注册
 - 建议下一步（如：可运行 `/test-gen <文件路径> 80` 验证实现正确性）
