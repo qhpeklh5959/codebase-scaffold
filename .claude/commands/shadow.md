@@ -1,12 +1,15 @@
-将一个方法、类或子包替换为 stub，可选同时中性化调用方依赖。保留原始代码备份，记录遮蔽状态。
+将一个方法、类或子包替换为 stub 或从代码库中完全卸载，可选同时处理调用方依赖。保留原始代码备份，记录遮蔽状态。
 
 用法：
 - `/shadow <ClassName.methodName>` — 遮蔽单个方法
 - `/shadow <ClassName>` — 遮蔽整个类
 - `/shadow <包名或目录路径>` — 遮蔽整个子包（如 `com.example.service` 或 `src/services/`）
-- 追加 `--mode no-op|throw|log` — stub 模式，默认 `no-op`
-- 追加 `--strip-callers` — 同时中性化所有调用方的依赖调用
-- 追加 `--reason "原因"` — 记录遮蔽原因
+
+选项：
+- `--mode no-op|throw|log` — stub 模式（默认 `no-op`）：保留文件结构，替换方法体为 stub
+- `--mode unload` — 卸载模式：删除目标文件，修改所有依赖方使代码库可编译
+- `--strip-callers` — 仅 stub 模式有效；unload 模式下默认处理所有依赖方
+- `--reason "原因"` — 记录遮蔽原因
 
 ---
 
@@ -15,216 +18,175 @@
 读取（若 CODEBASE.md 不存在则停止，提示用户先运行 `/bootstrap`）：
 
 1. `.agent/refs/CODEBASE.md` — 技术栈、目录结构
-2. `.agent/refs/conventions.md` — 确定语言，生成语法正确的 stub
+2. `.agent/refs/conventions.md` — 确定语言
 3. `.agent/refs/shadow-state.md` — 检查目标是否已处于遮蔽状态
 4. `.agent/refs/failures.md` — 避免已知错误
 
-解析 `$ARGUMENTS`，确定：
+解析 `$ARGUMENTS`，确定 TARGET、MODE（默认 `no-op`）、STRIP_CALLERS、REASON。
 
-- `TARGET`：方法 / 类 / 子包（见下方识别规则）
-- `MODE`：`no-op`（默认）/ `throw` / `log`
-- `STRIP_CALLERS`：是否指定了 `--strip-callers`
-- `REASON`：遮蔽原因（可选）
-
-**Target 类型识别规则**：
-
-- 含 `.` 且最后一段首字母大写，如 `UserService.createUser` → **方法**
-- 首字母大写，无路径分隔符，如 `UserService` → **类**
-- 含路径分隔符（`/`）或全小写点分格式（`com.example.service`）→ **子包/目录**
+**Target 类型识别**：
+- `ClassName.methodName`（最后段首字母大写且含 `.`）→ **方法**
+- `ClassName`（首字母大写，无路径分隔符）→ **类**
+- 含 `/` 或全小写点分格式 → **子包/目录**
 
 ## Step 2：前置检查
 
-**已遮蔽检查**：在 shadow-state.md Active 节查找目标：
-- 若已存在：输出警告，询问是否覆盖，未确认则停止
+**已遮蔽检查**：在 shadow-state.md Active 节查找目标，若已存在则询问是否覆盖，未确认则停止。
 
 **定位目标文件列表**：
+- 方法/类：从 symbols.md 查找；找不到则 Grep；仍找不到则报告并停止
+- 子包：Glob 扫描目标目录，得到所有源文件；超过 10 个先列出请用户确认
 
-- **方法 / 类**：从 `symbols.md` 查找；找不到则 Grep 搜索；仍找不到则报告并停止
-- **子包**：
-  1. 若为路径格式（含 `/`），用 Glob 扫描该目录下所有源文件
-  2. 若为包名格式（`com.example.service`），根据 CODEBASE.md 中的目录结构推断对应路径，再 Glob 扫描
-  3. 列出将被遮蔽的所有文件，若超过 10 个，先输出文件列表请用户确认
+## Step 3：备份原始代码 + 生成功能描述
 
-## Step 3：生成 SHADOW_ID 并创建备份
+生成 SHADOW_ID（规则：方法 `{class}_{method}`；类 `{classname}`；包 `pkg_{sanitized}`）。
 
-**SHADOW_ID 规则**：
-
-- 方法：`{classname}_{methodname}`，如 `userservice_createuser`
-- 类：`{classname}`，如 `userservice`
-- 子包：`pkg_{sanitized_package}`，如 `pkg_com_example_service` 或 `pkg_src_services`
-
-创建备份目录 `.agent/shadows/{SHADOW_ID}/`，写入以下文件：
+创建 `.agent/shadows/{SHADOW_ID}/`，写入：
 
 ```
 .agent/shadows/{SHADOW_ID}/
-├── description.md               ← 功能描述（extend 恢复时可读）
-├── {sanitized_path_file1}       ← 各源文件完整副本（extend 不可读）
+├── description.md               ← 功能描述（extend 恢复时可读；不含代码）
+├── {sanitized_path_file1}       ← 目标文件完整备份（extend 不可读）
 ├── {sanitized_path_file2}
-└── callers/                     ← 仅 --strip-callers 时创建
-    ├── strip-description.md     ← 记录每处调用方的修改内容
-    ├── {sanitized_caller_file1} ← 调用方原始文件副本
-    └── {sanitized_caller_file2}
+└── dependents/                  ← unload 模式下：被修改的依赖方文件备份
+    ├── change-log.md            ← 每个文件的修改记录
+    └── {sanitized_dep_file}     ← 依赖方原始文件备份
 ```
 
-**文件名sanitize规则**：将路径中的 `/` 替换为 `_`，保留扩展名，如 `src/service/UserService.java` → `src_service_UserService.java`。
+**生成 description.md**：读取目标文件，提炼为自然语言，不含任何代码。方法/类描述职责+契约；子包额外描述包的整体边界和各文件分工。
 
-**生成功能描述**（在写入 stub 之前）：
+---
 
-读取所有目标文件，将行为提炼为自然语言写入 `description.md`：
-- **不包含任何代码**
-- 方法/类：同原有规范
-- 子包：先写包的整体职责和模块边界，再按文件逐一描述各类的职责
+## Step 4A：Stub 模式（`--mode no-op | throw | log`）
 
-## Step 4：生成并写入 stub
+对所有目标文件逐一替换方法体，保留文件结构（类签名、字段、构造函数签名不变）：
 
-根据 `conventions.md` 确定语言，对所有目标文件逐一处理：
-
-### 方法 stub（替换方法体，保留签名）
-
-**no-op**：返回零值，不抛出，不打印
-
+**no-op**（默认）：返回语言对应的零值，静默丢弃
 ```java
 // SHADOWED: UserService.createUser [shadow-id: userservice_createuser]
 return null;
 ```
 
 **throw**：明确标记不可用
-
 ```java
 // SHADOWED: UserService.createUser [shadow-id: userservice_createuser]
 throw new UnsupportedOperationException("SHADOWED: userservice_createuser");
 ```
 
 **log**：打印警告后返回零值
-
 ```java
 // SHADOWED: UserService.createUser [shadow-id: userservice_createuser]
 log.warn("[SHADOW] UserService.createUser called but shadowed");
 return null;
 ```
 
-### 类 stub（对类中所有公共方法逐一应用方法 stub）
+类遮蔽时，对所有公共方法逐一应用；私有方法不处理。子包遮蔽时，对包内每个文件应用类遮蔽。
 
-- 保留类结构、字段声明、构造函数签名（构造函数体置空）
-- 私有方法不处理（调用方不可见）
+用 Edit 精确替换，记录每个文件的 stub 行范围。
 
-### 子包 stub
+### Stub 模式的调用方处理（`--strip-callers` 时）
 
-对包内每个文件，应用"类 stub"规则，逐文件逐方法处理。
+用 Grep 查找所有调用方文件，备份到 `callers/` 目录（同原有逻辑），再逐一中性化调用：
 
-用 Edit 精确替换目标方法体，记录每个文件的 stub 行范围。
+- 方法调用 → 注释原调用，插入 null 赋值或空语句 + `[CALLER-STRIPPED]` 标记
+- 实例化 → 替换为 null + `[CALLER-STRIPPED]` 标记
+- import → 保留但加注释标记
 
-## Step 5：中性化调用方（仅 `--strip-callers`）
+记录到 `callers/strip-description.md`。
 
-### Step 5-1：查找调用方
+---
 
-用 Grep 搜索以下模式，找出所有调用方文件：
-- 方法调用：`targetMethod(` 或 `target.method(`
-- 类引用：import 语句、类型声明、实例化（`new ClassName`）
-- 子包：搜索包内所有类名的引用
+## Step 4B：Unload 模式（`--mode unload`）
 
-去重后得到调用方文件列表，排除目标文件本身。
+### Step 4B-1：扫描所有依赖方
 
-### Step 5-2：备份调用方
+用 Grep 全面搜索以下引用，建立**依赖方文件列表**：
 
-将每个调用方文件完整复制到 `.agent/shadows/{SHADOW_ID}/callers/` 目录。
+- import 语句中引用目标包/类的文件
+- 字段声明使用目标类型的文件（`private UserService`、`val service: UserService` 等）
+- 方法参数或返回类型使用目标类型的文件
+- 直接方法调用（`userService.xxx()`）
+- 实例化（`new UserService()`、`UserService()`）
 
-初始化 `callers/strip-description.md`，记录每个调用方文件将被修改的内容。
+排除目标文件自身，去重后得到依赖方列表。若列表非空，先输出依赖方文件列表供用户了解影响范围，不阻断流程。
 
-### Step 5-3：中性化调用方中的依赖
+### Step 4B-2：备份依赖方文件
 
-对每个调用方文件，逐一处理对遮蔽目标的引用：
+将所有依赖方文件完整备份到 `.agent/shadows/{SHADOW_ID}/dependents/`，初始化 `change-log.md`。
 
-**方法调用中性化**：
+### Step 4B-3：删除目标文件
 
-```java
-// 原始
-User user = userService.createUser(username, email, password);
+直接删除所有目标文件（已备份在 Step 3）。子包遮蔽时删除包内所有源文件；若目录因此变空，也删除空目录。
 
-// 中性化后（no-op 模式）
-// [CALLER-STRIPPED: userservice_createuser] User user = userService.createUser(username, email, password);
-User user = null; // stripped
-```
+### Step 4B-4：修改依赖方使代码库可编译
 
-```java
-// 原始（void 调用）
-userService.notifyUser(userId);
+对每个依赖方文件，按以下顺序处理，目标是**让该文件编译通过**，不留对已删除代码的引用：
 
-// 中性化后
-// [CALLER-STRIPPED: userservice_createuser] userService.notifyUser(userId);
-// stripped
-```
+**移除 import 语句**：删除引用已删除类/包的 import 行。
 
-**实例化中性化**：若调用方实例化了被遮蔽的类，替换为 null：
+**移除字段声明**：若字段类型是已删除的类，删除该字段声明。
 
-```java
-// [CALLER-STRIPPED: userservice] UserService svc = new UserService(...);
-UserService svc = null; // stripped
-```
+**修改构造函数/方法签名**：若参数类型是已删除的类：
+- 若该参数在方法体中有使用，删除参数并替换方法体中的用法（以 null 或默认值替代，加注释 `// [UNLOADED: {SHADOW_ID}]`）
+- 若该参数在方法体中未使用，直接删除参数
 
-**导入语句**：保留 import（因为类型声明可能还在），在其上方加注释标记：
+**移除方法调用**：
+- 有返回值且被使用：`User u = service.createUser(...)` → `User u = null; // [UNLOADED: {SHADOW_ID}]`
+- 有返回值但未使用：`service.createUser(...)` → 删除整行，加注释 `// [UNLOADED: {SHADOW_ID}] was: service.createUser(...)`
+- void 调用：删除整行，加注释
 
-```java
-// [CALLER-STRIPPED: userservice] import kept for type reference
-import com.example.service.UserService;
-```
+**移除类型注解/泛型参数**中对已删除类的引用（替换为 Object 或父类型，加注释标记）。
 
-**记录到 `strip-description.md`**，格式：
+每处修改记录到 `change-log.md`：
 
 ```markdown
-## {调用方文件路径}
-- 第 N 行：方法调用 `userService.createUser(...)` → 中性化为 null
-- 第 M 行：实例化 `new UserService(...)` → 中性化为 null
+## src/controller/UserController.java
+- 第 3 行：移除 import com.example.service.UserService
+- 第 15 行：移除字段 private UserService userService
+- 第 28 行：方法调用 userService.createUser(...) → null [UNLOADED]
 ```
 
-### Step 5-4：写入修改后的调用方文件
+### Step 4B-5：编译验证与修复
 
-使用 Edit 逐一应用中性化修改。
+运行编译命令，检查是否有残留编译错误：
 
-## Step 6：编译验证
+- **无错误**：继续
+- **有错误**：分析每个错误，判断是否由卸载操作引起的遗漏引用
+  - 若是遗漏引用：补充处理（重复 Step 4B-4 的对应动作）
+  - 若是其他错误：记录到 failures.md，报告给用户
+  - 最多修复循环 3 次；仍有错误则报告未解决项，提示用户手动处理
 
-运行编译命令（从 CODEBASE.md 获取）：
+---
 
-- **成功**：继续
-- **失败**：进入重试流程
-  1. 解析错误，判断是 stub 语法问题还是调用方中性化不完整（如遗漏了某处调用）
-  2. 查阅 failures.md
-  3. 修正后重试，最多 3 次
-  4. 每次失败更新 failures.md
-  5. 3 次失败后：回滚所有已修改的文件（目标文件 + 调用方），报告失败原因，停止
+## Step 5：更新 shadow-state.md
 
-## Step 7：更新 shadow-state.md
-
-在 Active 节中追加记录：
+在 Active 节追加记录：
 
 ```markdown
 ### {SHADOW_ID}
 - **目标**: {TARGET}
 - **类型**: method | class | package
-- **遮蔽模式**: {mode}
+- **遮蔽模式**: no-op | throw | log | unload
 - **遮蔽时间**: {今天日期}
 - **遮蔽原因**: {reason 或"未指定"}
-- **包含文件**:（类型为 package 时列出）
-  - src/service/UserService.java → stub 行范围 12-45
-  - src/service/OrderService.java → stub 行范围 8-92
 - **备份目录**: .agent/shadows/{SHADOW_ID}/（extend 只可读 description.md）
 - **功能描述**: .agent/shadows/{SHADOW_ID}/description.md
-- **调用方中性化**: 是 | 否
-- **已处理调用方**:（--strip-callers 时列出）
-  - src/controller/UserController.java（备份：callers/src_controller_UserController.java）
-  - src/controller/OrderController.java（备份：callers/src_controller_OrderController.java）
-  - 详见 .agent/shadows/{SHADOW_ID}/callers/strip-description.md
+- **包含文件**:（package 时列出）
+  - src/service/UserService.java
+  - src/service/OrderService.java
+- **stub 行范围**: start-end（method/class stub 时填写）
+- **调用方处理**: 未处理 | strip-callers（stub）| unload-dependents（unload）
+- **已处理依赖方**:（unload 或 strip-callers 时列出文件，详见 dependents/change-log.md 或 callers/strip-description.md）
 ```
 
-## Step 8：更新 failures.md（积累经验）
+## Step 6：更新 failures.md（积累经验）
 
-若遇到问题（stub 语法错误、调用方遗漏、编译失败等），追加到 failures.md，同步修正相关 conventions.md。
+遇到问题（stub 语法错误、依赖方修改遗漏、编译循环失败等）追加到 failures.md，同步修正 conventions.md。
 
 ## 完成输出
 
-- SHADOW_ID
-- 遮蔽类型（方法 / 类 / 子包）及文件数量
-- 备份位置
-- 是否执行了调用方中性化，处理了哪些文件（列出）
-- 编译验证结果
-- 提示：运行 `/extend 实现 {TARGET}` 可重新实现；运行 `/rollback {TARGET}` 可直接恢复原始代码
+- SHADOW_ID 和遮蔽模式
+- 目标类型及文件数量
+- **Stub 模式**：已 stub 的文件和行范围；若 strip-callers 则列出处理的调用方
+- **Unload 模式**：已删除的文件列表；已修改的依赖方文件列表；编译验证结果；若有未解决的编译错误，列出残留问题
+- 提示：运行 `/extend 实现 {TARGET}` 可重新实现；运行 `/rollback {TARGET}` 可一键还原所有修改

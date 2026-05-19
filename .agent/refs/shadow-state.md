@@ -16,20 +16,20 @@
 ### SHADOW_ID
 - **目标**: ClassName.methodName | ClassName | com.example.pkg（或 src/pkg/）
 - **类型**: method | class | package
-- **遮蔽模式**: no-op | throw | log
+- **遮蔽模式**: no-op | throw | log | unload
 - **遮蔽时间**: YYYY-MM-DD
 - **遮蔽原因**: 用户提供的原因（可选）
 - **备份目录**: .agent/shadows/SHADOW_ID/（extend 只可读 description.md，不可读原始代码）
 - **功能描述**: .agent/shadows/SHADOW_ID/description.md
-- **包含文件**:（类型为 package 时列出每个文件及其 stub 行范围）
-  - src/service/UserService.java → stub 行范围 12-45
-  - src/service/OrderService.java → stub 行范围 8-92
-- **stub 行范围**: start-end（类型为 method 或 class 时填写）
-- **调用方中性化**: 是 | 否
-- **已处理调用方**:（调用方中性化为"是"时列出）
+- **包含文件**:（类型为 package 时列出）
+  - src/service/UserService.java
+  - src/service/OrderService.java
+- **stub 行范围**: start-end（method/class stub 时填写）
+- **调用方处理**: 未处理 | strip-callers（stub 模式）| unload-dependents（unload 模式）
+- **已处理依赖方**:（strip-callers 或 unload 时列出文件）
   - src/controller/UserController.java
-  - src/controller/OrderController.java
-  - 详见 .agent/shadows/SHADOW_ID/callers/strip-description.md
+  - 详见 .agent/shadows/SHADOW_ID/callers/strip-description.md（stub）
+  - 或   .agent/shadows/SHADOW_ID/dependents/change-log.md（unload）
 -->
 
 ## Restored（extend 重写后）
@@ -49,7 +49,7 @@
 ### SHADOW_ID（已回滚）
 - ...原有字段保留...
 - **回滚时间**: YYYY-MM-DD
-- **回滚前状态**: Active（stub）| Restored（extend 重写）
-- **调用方已回滚**: 是 | 否 | 不适用
+- **回滚前状态**: Active（stub）| Active（unload）| Restored（extend 重写）
+- **依赖方已回滚**: 是 | 否 | 不适用
 - **编译验证**: 通过 | 失败（见 failures.md）
 -->

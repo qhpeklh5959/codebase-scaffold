@@ -91,14 +91,17 @@ cp -r /path/to/codebase-agent/.agent .
 # 遮蔽一个方法（替换为 stub，原始代码自动备份 + 生成功能描述）
 /shadow UserService.createUser --mode throw --reason "隔离排查依赖问题"
 
-# 遮蔽整个类
+# 遮蔽整个类（stub 模式）
 /shadow PaymentService --mode log
 
-# 遮蔽整个子包
+# 遮蔽整个子包（stub 模式）
 /shadow com.example.service --mode no-op
 
 # 遮蔽子包，同时中性化所有调用方的依赖（可选）
 /shadow com.example.service --mode no-op --strip-callers
+
+# 完全卸载子包：删除目标文件，修改所有依赖方使代码库可编译
+/shadow com.example.service --mode unload
 
 # 恢复被遮蔽的方法（extend 自动检测 shadow 状态，读功能描述重写）
 /extend 实现 UserService.createUser
