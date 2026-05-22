@@ -19,6 +19,7 @@ your-project/
 │       ├── trace.md
 │       ├── gen-command.md
 │       ├── import-dep.md
+│       ├── ref-from.md
 │       ├── shadow.md
 │       ├── rollback.md
 │       └── reflect.md
@@ -27,6 +28,7 @@ your-project/
     │   ├── failures.md           ← 从本脚手架复制（空模板）
     │   ├── shadow-state.md       ← 从本脚手架复制（空模板）
     │   ├── deps.md               ← 从本脚手架复制（空模板）
+│   │   ├── refs-registry.md      ← 从本脚手架复制（空模板）
     │   └── command-suggestions.md ← 从本脚手架复制（空模板）
     ├── shadows/                  ← 由 /shadow 自动创建，存放原始代码备份
     └── refs/deps/                ← 由 /import-dep 自动创建，存放依赖库接口描述
@@ -76,11 +78,17 @@ cp -r /path/to/codebase-agent/.agent .
 # 直接描述需求，生成定制 command
 /gen-command 为每个新 API 接口生成 Controller + Service + Repository 三件套骨架
 
-# 导入另一个代码库的公共 API 作为依赖描述
+# 导入有调用关系的依赖库 API
 /import-dep ../codebase-a --name codebase-a
 
 # 依赖库升级后刷新
 /import-dep ../codebase-a --name codebase-a --refresh
+
+# 参考另一个代码库的实现模式（无调用关系）
+/ref-from ../codebase-b --name codebase-b
+
+# 聚焦特定领域提取参考模式
+/ref-from ../codebase-b --name codebase-b --focus "缓存层实现,错误处理"
 
 # 追踪方法调用链（自动识别跨库调用节点）
 /trace UserService.createUser
@@ -126,7 +134,8 @@ cp -r /path/to/codebase-agent/.agent .
 | `.claude/commands/test-gen.md` | 生成测试，达到指定覆盖率 |
 | `.claude/commands/trace.md` | 静态调用链追踪 |
 | `.claude/commands/gen-command.md` | 扩展 agent 自身：自动建议或按需生成定制 command |
-| `.claude/commands/import-dep.md` | 导入依赖库的公共 API 描述，建立依赖接口层 |
+| `.claude/commands/import-dep.md` | 导入有调用关系的依赖库公共 API，建立依赖接口层 |
+| `.claude/commands/ref-from.md` | 从无调用关系的参考库中提取实现模式和架构思路 |
 | `.claude/commands/shadow.md` | 遮蔽方法/类/子包为 stub；可选 `--strip-callers` 同时中性化调用方 |
 | `.claude/commands/rollback.md` | 直接将备份代码覆写回代码库，支持包级和调用方一并回滚 |
 | `.claude/commands/reflect.md` | 更新知识库，总结经验 |
@@ -135,8 +144,10 @@ cp -r /path/to/codebase-agent/.agent .
 | `.agent/refs/conventions.md` | 编码规范（由 bootstrap 生成） |
 | `.agent/refs/patterns.md` | 扩展模式（由 bootstrap 生成） |
 | `.agent/refs/failures.md` | 失败记录，持续更新 |
-| `.agent/refs/deps.md` | 依赖库注册表（由 /import-dep 维护） |
+| `.agent/refs/deps.md` | 依赖库注册表（有调用关系，由 /import-dep 维护） |
 | `.agent/refs/deps/{name}/` | 依赖库的接口描述（symbols + 可选 conventions） |
+| `.agent/refs/refs-registry.md` | 参考库注册表（无调用关系，由 /ref-from 维护） |
+| `.agent/refs/refs/{name}/` | 参考库的模式描述（patterns + 可选 conventions） |
 | `.agent/refs/command-suggestions.md` | 定制 command 建议清单（由 bootstrap/reflect/gen-command 写入） |
 | `.agent/refs/shadow-state.md` | 遮蔽状态记录（Active / Restored / Rolled Back） |
 | `.agent/shadows/` | 原始代码备份（由 /shadow 自动创建） |

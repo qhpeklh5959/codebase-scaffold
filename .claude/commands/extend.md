@@ -13,6 +13,7 @@
 3. `.agent/refs/conventions.md` — 了解命名和错误处理规范
 4. `.agent/refs/patterns.md` — 了解扩展步骤
 5. `.agent/refs/failures.md` — 避免已知错误
+6. `.agent/refs/refs-registry.md`（若存在）— 检查是否有与当前任务相关的参考库模式；若有，读取对应 `refs/{name}/patterns.md` 作为实现思路参考
 
 解析 `$ARGUMENTS`，确定：
 
