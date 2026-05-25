@@ -30,15 +30,20 @@
 
 ## Step 3：读取依赖库的知识
 
-判断依赖库是否已有 `.agent/refs/`：
+**首先**：检查 `{DEP_PATH}/.agent/refs/` 目录是否存在并包含已生成的知识库文件。优先使用已有知识库，避免重复分析源码。
 
-### 情况 A：依赖库已有 refs
+### 情况 A：依赖库已有 refs（优先路径）
 
-直接读取：
-- `{DEP_PATH}/.agent/refs/symbols.md` — 公共符号表
-- `{DEP_PATH}/.agent/refs/conventions.md` — 编码规范（可选，仅当两库共享规范时有意义）
+按以下顺序读取：
+
+1. `{DEP_PATH}/.agent/refs/CODEBASE.md` — **必读**，了解依赖库的整体架构和模块划分，辅助定位符号位置
+2. `{DEP_PATH}/.agent/refs/symbols.md` — **必读**，公共符号表，直接从中过滤当前库实际用到的符号
 
 根据 Step 2 的"实际使用清单"，从 symbols.md 中**过滤**出当前库实际用到的符号，丢弃无关内容。
+
+**读完 refs 文件后，不再扫描依赖库源码**，除非：
+- symbols.md 中找不到 Step 2 发现的某个实际使用的符号（需补充查找）
+- 需要确认某个符号的详细签名或行号
 
 ### 情况 B：依赖库尚无 refs
 

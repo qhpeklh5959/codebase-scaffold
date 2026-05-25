@@ -31,16 +31,19 @@
 
 ## Step 3：分析参考代码库
 
-判断参考库是否已有 `.agent/refs/`：
+**首先**：检查 `{REF_PATH}/.agent/refs/` 目录是否存在并包含已生成的知识库文件。优先使用已有知识库，避免重复探索源码。
 
-### 情况 A：参考库已有 refs
+### 情况 A：参考库已有 refs（优先路径）
 
-直接读取：
-- `{REF_PATH}/.agent/refs/CODEBASE.md` — 了解参考库的技术栈和架构
-- `{REF_PATH}/.agent/refs/patterns.md` — 已归纳的模式（直接复用，节省分析成本）
-- `{REF_PATH}/.agent/refs/conventions.md` — 编码规范（选取与当前库有参考价值的部分）
+按以下顺序读取，**读完再决定是否需要补充源码探索**：
 
-若指定了 `--focus`，在参考库源码中进一步定位该领域的具体实现文件，深入阅读。
+1. `{REF_PATH}/.agent/refs/CODEBASE.md` — **必读**，了解参考库的技术栈、架构、模块划分
+2. `{REF_PATH}/.agent/refs/patterns.md` — **必读**，已归纳的模式，直接复用，无需重新提炼
+3. `{REF_PATH}/.agent/refs/conventions.md` — 按需读取，选取与当前库有参考价值的部分
+
+若以上文件已能覆盖所需信息（全量提取时），**不再扫描参考库源码**。
+
+若指定了 `--focus`，先检查 patterns.md 中是否已有该领域的模式；若覆盖不足，再用 Grep 定位参考库源码中该领域的具体实现文件，深入阅读补充。
 
 ### 情况 B：参考库无 refs
 
