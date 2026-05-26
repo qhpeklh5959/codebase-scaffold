@@ -15,3 +15,29 @@
 - **已导入符号数**: N 个类/接口
 - **共享规范**: 是 | 否
 -->
+
+## PaddleFleet
+- **路径**: /root/paddlejob/share-storage/gpfs/system-public/qinhuapeng/PaddleFleet
+- **refs 来源**: 有 refs（直接读取）
+- **导入时间**: 2026-05-26
+- **当前库中的使用方**:
+  - `paddleformers/transformers/gpt_provider.py`
+  - `paddleformers/transformers/model_provider.py`
+  - `paddleformers/transformers/qwen3_5/modeling_fleet.py`
+  - `paddleformers/transformers/qwen3_vl/modeling_fleet.py`
+  - `paddleformers/trainer/trainer.py`
+  - `paddleformers/trainer/trainer_callback.py`
+  - `paddleformers/trainer/training_args.py`
+  - `paddleformers/trainer/trainer_utils.py`
+  - `paddleformers/peft/lora/lora_model.py`
+  - `paddleformers/peft/lora/lora_layers.py`
+  - `paddleformers/quantization/quantization_utils.py`
+  - `paddleformers/transformers/fp8_utils.py`
+  - `paddleformers/cli/train/deepseek_v3_pretrain/moe_layer.py`
+  - `paddleformers/cli/train/deepseek_v3_pretrain/moe_utils.py`
+  - `paddleformers/cli/train/dpo/dpo_trainer.py`
+  - `examples/experiments/paddlefleet/run_pretrain.py`
+  - `examples/experiments/deepseek_v3_pretrain/moe_layer.py`
+  - `examples/experiments/deepseek_v3_pretrain/moe_utils.py`
+- **已导入符号数**: 42 个类/接口/函数
+- **共享规范**: 是
