@@ -1,169 +1,176 @@
-# Codebase Agent 脚手架
+# PaddleFleet Codebase Agent
 
-将 Claude Code 的能力与大型代码库结合，提供**扩展实现、测试生成、调用链追踪、遮蔽与恢复**能力，并通过持续学习机制形成代码库专属知识库。
-
-## 快速开始
-
-### 1. 部署到目标代码库
-
-将以下内容复制到你的代码库根目录：
+本目录是 [Ducc](https://ducc.baidu.com) 为 PaddleFleet 代码库维护的知识库，配合 `/bootstrap`、`/trace`、`/reflect`、`/extend`、`/test-gen` 等 skill 使用。
 
 ```
-your-project/
-├── CLAUDE.md                     ← 从本脚手架复制
-├── .claude/
-│   └── commands/
-│       ├── bootstrap.md          ← 从本脚手架复制
-│       ├── extend.md
-│       ├── test-gen.md
-│       ├── trace.md
-│       ├── gen-command.md
-│       ├── import-dep.md
-│       ├── ref-from.md
-│       ├── shadow.md
-│       ├── rollback.md
-│       └── reflect.md
-└── .agent/
-    ├── refs/
-    │   ├── failures.md           ← 从本脚手架复制（空模板）
-    │   ├── shadow-state.md       ← 从本脚手架复制（空模板）
-    │   ├── deps.md               ← 从本脚手架复制（空模板）
-│   │   ├── refs-registry.md      ← 从本脚手架复制（空模板）
-    │   └── command-suggestions.md ← 从本脚手架复制（空模板）
-    ├── shadows/                  ← 由 /shadow 自动创建，存放原始代码备份
-    └── refs/deps/                ← 由 /import-dep 自动创建，存放依赖库接口描述
+.agent/
+├── refs/               # 知识库（由 Agent 维护，勿手动大幅修改）
+│   ├── CODEBASE.md     # 代码库架构概览、扩展点索引
+│   ├── symbols.md      # 关键类/方法的路径和签名
+│   ├── patterns.md     # 扩展模式和执行路径
+│   ├── conventions.md  # 编码规范
+│   ├── failures.md     # 已知错误及修正方式
+│   └── command-suggestions.md  # 推荐生成的定制 command
+└── README.md           # 本文件
 ```
 
-或直接在项目根目录运行：
+---
 
-```bash
-cp -r /path/to/codebase-agent/CLAUDE.md .
-cp -r /path/to/codebase-agent/.claude .
-cp -r /path/to/codebase-agent/.agent .
-```
+## 应用示例
 
-### 2. 初始化知识库（仅需一次）
+### 1. 初始化知识库
+
+第一次使用前，让 Agent 扫描代码库、建立 `refs/` 索引：
 
 ```
 /bootstrap
 ```
 
-或指定路径：
+对子目录单独初始化（如只关注 MoE 模块）：
 
 ```
-/bootstrap /path/to/your/project
+/bootstrap src/paddlefleet/transformer/moe
 ```
 
-### 3. 开始使用
+---
 
-```bash
-# 实现一个方法
-/extend 实现 UserService.createUser 方法，要求持久化到数据库并发送欢迎邮件
+### 2. 静态追踪调用链
 
-# 实现一个新类
-/extend 实现 EmailNotifier 类，实现 Notifier 接口
+追踪一个方法的完整调用树，不需要运行代码：
 
-# 为某个文件生成测试，目标覆盖率 85%
-/test-gen src/service/UserService.java 85
+```
+/trace GPTModel.forward
+/trace MoELayer.forward
+/trace FusionMoePyLayer.forward
+```
 
-# 查看 agent 自动建议的定制 command
-/gen-command --list
+输出示例（节选）：
 
-# 分析代码库，主动生成建议（不主动调用时也会由 bootstrap/reflect 触发）
-/gen-command --suggest
+```
+MoELayer.forward (moe_layer.py:942)
+├── TopKRouter.forward (moe_router.py:770)
+│   ├── gate_detach_matmul(...)   [paddlefleet_ops]
+│   └── self.gate_score_func(logits)  [dynamic: sigmoid/softmax]
+├── self.dispatch(...)
+│   └── token_dispatcher.token_dispatch(...)  [** AllToAll 通信 **]
+└── FusionMoePyLayer.apply(...)
+    └── MlpNode.forward(...)
+        ├── UnZipNode.forward → paddle.nn.functional.moe_permute(...)
+        ├── ExpertsGroupGemmContiguousNode.forward(...)
+        │   ├── fwd_gate_up_fp8 → split_group_gemm / deep_gemm
+        │   └── fwd_down_fp8   → fuse_weighted_swiglu_fp8_quant
+        └── ZipNode.forward → paddle.nn.functional.moe_unpermute(...)
+```
 
-# 生成某条建议
-/gen-command --create gen-controller
+追踪时标注 `[dynamic]`（接口/回调/反射）、`[depth limit]`（超过 5 层）、`[** 通信 **]`（分布式通信节点），便于定位性能瓶颈或调试问题。
 
-# 直接描述需求，生成定制 command
-/gen-command 为每个新 API 接口生成 Controller + Service + Repository 三件套骨架
+---
 
-# 导入有调用关系的依赖库 API
-/import-dep ../codebase-a --name codebase-a
+### 3. 实现一个新方法
 
-# 依赖库升级后刷新
-/import-dep ../codebase-a --name codebase-a --refresh
+用 `/extend` 让 Agent 根据 `refs/` 中的模式和规范自动实现代码：
 
-# 参考另一个代码库的实现模式（无调用关系）
-/ref-from ../codebase-b --name codebase-b
+**场景：为 TransformerLayer 添加一个新的 post-processing hook**
 
-# 聚焦特定领域提取参考模式
-/ref-from ../codebase-b --name codebase-b --focus "缓存层实现,错误处理"
+```
+/extend TransformerLayer._post_process_hook
+```
 
-# 追踪方法调用链（自动识别跨库调用节点）
-/trace UserService.createUser
+Agent 会：
+1. 读取 `refs/CODEBASE.md` 了解模块边界
+2. 读取 `refs/patterns.md` 找相似的扩展模式
+3. 读取 `refs/conventions.md` 确保风格一致
+4. 生成符合 PaddleFleet 规范的实现
 
-# 追踪调用链（同时显示谁调用了它）
-/trace UserService.createUser --callers
+**场景：为新的 attention 变体补全实现**
 
-# 遮蔽一个方法（替换为 stub，原始代码自动备份 + 生成功能描述）
-/shadow UserService.createUser --mode throw --reason "隔离排查依赖问题"
+```
+/shadow SelfAttention   # 先将目标设为 stub
+# 描述需求后：
+/extend SelfAttention   # Agent 读取 shadow 时记录的描述并实现
+```
 
-# 遮蔽整个类（stub 模式）
-/shadow PaymentService --mode log
+---
 
-# 遮蔽整个子包（stub 模式）
-/shadow com.example.service --mode no-op
+### 4. 生成测试
 
-# 遮蔽子包，同时中性化所有调用方的依赖（可选）
-/shadow com.example.service --mode no-op --strip-callers
+为指定目标生成覆盖率达标的单元测试：
 
-# 完全卸载子包：删除目标文件，修改所有依赖方使代码库可编译
-/shadow com.example.service --mode unload
+```
+/test-gen src/paddlefleet/transformer/moe/moe_router.py 80
+/test-gen TopKRouter.forward 90
+```
 
-# 恢复被遮蔽的方法（extend 自动检测 shadow 状态，读功能描述重写）
-/extend 实现 UserService.createUser
+生成的测试会放入 `tests/single_card_tests/ai_edited_test/` 目录，遵循 `refs/conventions.md` 中的测试规范（`unittest.TestCase`，`MagicMock`，`assertEqual` 等）。
 
-# 直接回滚到原始备份代码（跳过 agent 重写）
-/rollback UserService.createUser
+---
 
-# 查看所有遮蔽状态 / 可回滚项
-/rollback --list
+### 5. 更新知识库
 
-# 更新知识库（建议每次任务后运行）
+完成一次 `/trace` 或 `/extend` 后，让 Agent 把新发现沉淀回 `refs/`：
+
+```
 /reflect
 ```
 
-## 目录说明
+也可以带说明，指定更新方向：
 
-| 路径 | 说明 |
-|------|------|
-| `CLAUDE.md` | Agent 行为规则（前置检查、重试规则、输出规范） |
-| `.claude/commands/bootstrap.md` | 分析代码库，初始化 `.agent/refs/` |
-| `.claude/commands/extend.md` | 实现方法或类；若目标处于 shadow 状态，自动切换为恢复模式（支持包级） |
-| `.claude/commands/test-gen.md` | 生成测试，达到指定覆盖率 |
-| `.claude/commands/trace.md` | 静态调用链追踪 |
-| `.claude/commands/gen-command.md` | 扩展 agent 自身：自动建议或按需生成定制 command |
-| `.claude/commands/import-dep.md` | 导入有调用关系的依赖库公共 API，建立依赖接口层 |
-| `.claude/commands/ref-from.md` | 从无调用关系的参考库中提取实现模式和架构思路 |
-| `.claude/commands/shadow.md` | 遮蔽方法/类/子包为 stub；可选 `--strip-callers` 同时中性化调用方 |
-| `.claude/commands/rollback.md` | 直接将备份代码覆写回代码库，支持包级和调用方一并回滚 |
-| `.claude/commands/reflect.md` | 更新知识库，总结经验 |
-| `.agent/refs/CODEBASE.md` | 代码库概览（由 bootstrap 生成） |
-| `.agent/refs/symbols.md` | 关键符号索引（由 bootstrap 生成） |
-| `.agent/refs/conventions.md` | 编码规范（由 bootstrap 生成） |
-| `.agent/refs/patterns.md` | 扩展模式（由 bootstrap 生成） |
-| `.agent/refs/failures.md` | 失败记录，持续更新 |
-| `.agent/refs/deps.md` | 依赖库注册表（有调用关系，由 /import-dep 维护） |
-| `.agent/refs/deps/{name}/` | 依赖库的接口描述（symbols + 可选 conventions） |
-| `.agent/refs/refs-registry.md` | 参考库注册表（无调用关系，由 /ref-from 维护） |
-| `.agent/refs/refs/{name}/` | 参考库的模式描述（patterns + 可选 conventions） |
-| `.agent/refs/command-suggestions.md` | 定制 command 建议清单（由 bootstrap/reflect/gen-command 写入） |
-| `.agent/refs/shadow-state.md` | 遮蔽状态记录（Active / Restored / Rolled Back） |
-| `.agent/shadows/` | 原始代码备份（由 /shadow 自动创建） |
+```
+/reflect 刚刚修改了 MoELayer 的分支逻辑，更新 patterns.md 中的路由决策树
+```
 
-## 设计原则
+`/reflect` 会自动：
+- 补充 `symbols.md` 中缺失的类/方法
+- 修正 `patterns.md` 中错误或过时的模式
+- 将本次发现的失败案例写入 `failures.md`
+- 在 `command-suggestions.md` 中建议值得封装的定制 command
 
-- **高内聚**：每个 skill 职责单一，refs 文件按主题隔离
-- **低耦合**：skill 之间不互相调用，只通过 `.agent/refs/` 共享知识
-- **可复用**：skills 是通用的，refs 是代码库专属的
-- **持续学习**：failures.md 随每次任务积累，避免重复犯错
+---
 
-## 注意事项
+### 6. 遮蔽（临时移除）一个模块
 
-- `bootstrap` 生成的 refs 是起点，会随使用逐渐完善
-- `trace` 是纯静态分析，接口多态场景会标注 `[dynamic]` 提示
-- `shadow` / `extend`（恢复模式） / `rollback` 具有依赖关系：必须先 shadow 才能触发恢复或回滚；extend 恢复后仍可 rollback（备份默认保留）
-- `extend` 恢复模式使用 agent 重写，设计语言一致但结果可能与原始有差异；`rollback` 直接复原原始代码，结果确定但可能与当前代码库存在兼容性问题
-- 建议将 `.agent/refs/` 提交到版本控制，团队共享知识库；`.agent/shadows/` 按需决定是否提交
-- `failures.md` 尤其值得保留，记录了代码库特有的"坑"
+在重构期间，将某个实现替换为 stub，阻止其他代码依赖它：
+
+```
+/shadow MultiTokenPredictionLayer
+```
+
+Agent 会保留原始代码备份，并在 `refs/shadow-state.md` 中记录遮蔽状态，避免后续操作误改 stub 代码。恢复时：
+
+```
+/rollback MultiTokenPredictionLayer
+```
+
+---
+
+### 7. 生成定制 Command
+
+根据本项目的 `refs/command-suggestions.md` 中的建议，生成可复用的 command：
+
+```
+/gen-command --create trace-moe-path
+/gen-command --create trace-pp-stage
+```
+
+生成后，后续可直接用简短命令替代复杂的手动操作：
+
+```
+/trace-moe-path --ep-size 8 --fusion-node true
+/trace-pp-stage --pp-size 4 --stage-id 2
+```
+
+---
+
+## 知识库维护说明
+
+`refs/` 下的文件由 Agent 在每次 `/reflect` 时自动维护，记录的是**观察到的结论**，不粘贴原始代码。
+
+| 文件 | 内容 | 更新时机 |
+|------|------|---------|
+| `CODEBASE.md` | 目录结构、模块职责、扩展点索引 | 新增模块时 |
+| `symbols.md` | 类/方法的文件路径、行号、签名 | trace/extend 发现新符号时 |
+| `patterns.md` | 扩展步骤、执行路径、设计决策 | 理解新模式时 |
+| `conventions.md` | 命名、注释、测试、导入规范 | 发现新约定时 |
+| `failures.md` | 已踩过的坑及修正方式 | 遭遇失败时 |
+
+如果 `refs/` 内容与代码出现冲突，**以代码为准**，并通过 `/reflect` 修正 refs。
