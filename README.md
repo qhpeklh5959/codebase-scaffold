@@ -1,169 +1,128 @@
-# Codebase Agent 脚手架
+# PaddleFormers Codebase Agent
 
-将 Claude Code 的能力与大型代码库结合，提供**扩展实现、测试生成、调用链追踪、遮蔽与恢复**能力，并通过持续学习机制形成代码库专属知识库。
+基于 Claude Code 的 PaddleFormers 专属研发 Agent，内置代码库知识库（`.agent/refs/`）和一套定制 commands，覆盖模型接入、训练、对齐、测试、依赖管理等核心研发场景。
 
-## 快速开始
+---
 
-### 1. 部署到目标代码库
+## 安装
 
-将以下内容复制到你的代码库根目录：
-
-```
-your-project/
-├── CLAUDE.md                     ← 从本脚手架复制
-├── .claude/
-│   └── commands/
-│       ├── bootstrap.md          ← 从本脚手架复制
-│       ├── extend.md
-│       ├── test-gen.md
-│       ├── trace.md
-│       ├── gen-command.md
-│       ├── import-dep.md
-│       ├── ref-from.md
-│       ├── shadow.md
-│       ├── rollback.md
-│       └── reflect.md
-└── .agent/
-    ├── refs/
-    │   ├── failures.md           ← 从本脚手架复制（空模板）
-    │   ├── shadow-state.md       ← 从本脚手架复制（空模板）
-    │   ├── deps.md               ← 从本脚手架复制（空模板）
-│   │   ├── refs-registry.md      ← 从本脚手架复制（空模板）
-    │   └── command-suggestions.md ← 从本脚手架复制（空模板）
-    ├── shadows/                  ← 由 /shadow 自动创建，存放原始代码备份
-    └── refs/deps/                ← 由 /import-dep 自动创建，存放依赖库接口描述
-```
-
-或直接在项目根目录运行：
+**1. 安装 PaddleFormers**
 
 ```bash
-cp -r /path/to/codebase-agent/CLAUDE.md .
-cp -r /path/to/codebase-agent/.claude .
-cp -r /path/to/codebase-agent/.agent .
+git clone https://github.com/your-org/PaddleFormers.git
+cd PaddleFormers
+pip install -e .
 ```
 
-### 2. 初始化知识库（仅需一次）
-
-```
-/bootstrap
-```
-
-或指定路径：
-
-```
-/bootstrap /path/to/your/project
-```
-
-### 3. 开始使用
+**2. 进入项目目录，启动 Agent**
 
 ```bash
-# 实现一个方法
-/extend 实现 UserService.createUser 方法，要求持久化到数据库并发送欢迎邮件
-
-# 实现一个新类
-/extend 实现 EmailNotifier 类，实现 Notifier 接口
-
-# 为某个文件生成测试，目标覆盖率 85%
-/test-gen src/service/UserService.java 85
-
-# 查看 agent 自动建议的定制 command
-/gen-command --list
-
-# 分析代码库，主动生成建议（不主动调用时也会由 bootstrap/reflect 触发）
-/gen-command --suggest
-
-# 生成某条建议
-/gen-command --create gen-controller
-
-# 直接描述需求，生成定制 command
-/gen-command 为每个新 API 接口生成 Controller + Service + Repository 三件套骨架
-
-# 导入有调用关系的依赖库 API
-/import-dep ../codebase-a --name codebase-a
-
-# 依赖库升级后刷新
-/import-dep ../codebase-a --name codebase-a --refresh
-
-# 参考另一个代码库的实现模式（无调用关系）
-/ref-from ../codebase-b --name codebase-b
-
-# 聚焦特定领域提取参考模式
-/ref-from ../codebase-b --name codebase-b --focus "缓存层实现,错误处理"
-
-# 追踪方法调用链（自动识别跨库调用节点）
-/trace UserService.createUser
-
-# 追踪调用链（同时显示谁调用了它）
-/trace UserService.createUser --callers
-
-# 遮蔽一个方法（替换为 stub，原始代码自动备份 + 生成功能描述）
-/shadow UserService.createUser --mode throw --reason "隔离排查依赖问题"
-
-# 遮蔽整个类（stub 模式）
-/shadow PaymentService --mode log
-
-# 遮蔽整个子包（stub 模式）
-/shadow com.example.service --mode no-op
-
-# 遮蔽子包，同时中性化所有调用方的依赖（可选）
-/shadow com.example.service --mode no-op --strip-callers
-
-# 完全卸载子包：删除目标文件，修改所有依赖方使代码库可编译
-/shadow com.example.service --mode unload
-
-# 恢复被遮蔽的方法（extend 自动检测 shadow 状态，读功能描述重写）
-/extend 实现 UserService.createUser
-
-# 直接回滚到原始备份代码（跳过 agent 重写）
-/rollback UserService.createUser
-
-# 查看所有遮蔽状态 / 可回滚项
-/rollback --list
-
-# 更新知识库（建议每次任务后运行）
-/reflect
+cd PaddleFormers
+claude
 ```
 
-## 目录说明
+知识库（`.agent/refs/`）已随代码库一起提供，无需额外初始化，直接使用所有 commands。
 
-| 路径 | 说明 |
-|------|------|
-| `CLAUDE.md` | Agent 行为规则（前置检查、重试规则、输出规范） |
-| `.claude/commands/bootstrap.md` | 分析代码库，初始化 `.agent/refs/` |
-| `.claude/commands/extend.md` | 实现方法或类；若目标处于 shadow 状态，自动切换为恢复模式（支持包级） |
-| `.claude/commands/test-gen.md` | 生成测试，达到指定覆盖率 |
-| `.claude/commands/trace.md` | 静态调用链追踪 |
-| `.claude/commands/gen-command.md` | 扩展 agent 自身：自动建议或按需生成定制 command |
-| `.claude/commands/import-dep.md` | 导入有调用关系的依赖库公共 API，建立依赖接口层 |
-| `.claude/commands/ref-from.md` | 从无调用关系的参考库中提取实现模式和架构思路 |
-| `.claude/commands/shadow.md` | 遮蔽方法/类/子包为 stub；可选 `--strip-callers` 同时中性化调用方 |
-| `.claude/commands/rollback.md` | 直接将备份代码覆写回代码库，支持包级和调用方一并回滚 |
-| `.claude/commands/reflect.md` | 更新知识库，总结经验 |
-| `.agent/refs/CODEBASE.md` | 代码库概览（由 bootstrap 生成） |
-| `.agent/refs/symbols.md` | 关键符号索引（由 bootstrap 生成） |
-| `.agent/refs/conventions.md` | 编码规范（由 bootstrap 生成） |
-| `.agent/refs/patterns.md` | 扩展模式（由 bootstrap 生成） |
-| `.agent/refs/failures.md` | 失败记录，持续更新 |
-| `.agent/refs/deps.md` | 依赖库注册表（有调用关系，由 /import-dep 维护） |
-| `.agent/refs/deps/{name}/` | 依赖库的接口描述（symbols + 可选 conventions） |
-| `.agent/refs/refs-registry.md` | 参考库注册表（无调用关系，由 /ref-from 维护） |
-| `.agent/refs/refs/{name}/` | 参考库的模式描述（patterns + 可选 conventions） |
-| `.agent/refs/command-suggestions.md` | 定制 command 建议清单（由 bootstrap/reflect/gen-command 写入） |
-| `.agent/refs/shadow-state.md` | 遮蔽状态记录（Active / Restored / Rolled Back） |
-| `.agent/shadows/` | 原始代码备份（由 /shadow 自动创建） |
+> 若在新代码库中使用，需先运行 `/bootstrap` 初始化知识库。
 
-## 设计原则
+---
 
-- **高内聚**：每个 skill 职责单一，refs 文件按主题隔离
-- **低耦合**：skill 之间不互相调用，只通过 `.agent/refs/` 共享知识
-- **可复用**：skills 是通用的，refs 是代码库专属的
-- **持续学习**：failures.md 随每次任务积累，避免重复犯错
+## 使用方法
 
-## 注意事项
+在 Claude Code 交互界面中，直接输入 command 名称即可触发对应能力：
 
-- `bootstrap` 生成的 refs 是起点，会随使用逐渐完善
-- `trace` 是纯静态分析，接口多态场景会标注 `[dynamic]` 提示
-- `shadow` / `extend`（恢复模式） / `rollback` 具有依赖关系：必须先 shadow 才能触发恢复或回滚；extend 恢复后仍可 rollback（备份默认保留）
-- `extend` 恢复模式使用 agent 重写，设计语言一致但结果可能与原始有差异；`rollback` 直接复原原始代码，结果确定但可能与当前代码库存在兼容性问题
-- 建议将 `.agent/refs/` 提交到版本控制，团队共享知识库；`.agent/shadows/` 按需决定是否提交
-- `failures.md` 尤其值得保留，记录了代码库特有的"坑"
+```
+/add-model qwen3_5 --ref Qwen/Qwen3.5-7B
+```
+
+也可以用自然语言描述任务，Agent 会自动结合知识库上下文完成：
+
+```
+帮我给 Qwen3.5 模型添加 LoRA 支持
+```
+
+---
+
+## Commands 一览
+
+### 模型开发
+
+| Command | 用法 | 说明 |
+|---------|------|------|
+| `/add-model` | `/add-model <model_name> [--ref <hf_model_id>]` | 为 PaddleFormers 添加新模型，自动创建 Config/Model/Tokenizer、注册 Auto 模块和 Chat Template |
+| `/extend` | `/extend <描述>` | 在代码库中实现一个方法或类，自动处理 shadow stub 状态 |
+| `/trace` | `/trace <方法全限定名>` | 静态追踪方法完整调用链，标注动态调用风险 |
+| `/shadow` | `/shadow <目标>` | 将方法/类替换为 stub 或从代码库卸载，保留备份 |
+| `/rollback` | `/rollback <目标>` | 从备份恢复原始代码 |
+
+### 训练与对齐
+
+| Command | 用法 | 说明 |
+|---------|------|------|
+| `/train-model` | `/train-model <model> [--stage SFT\|PT\|DPO\|VL-SFT] [--lora] [--tp N] [--pp N]` | 生成训练配置并执行端到端训练 |
+| `/align` | `/align <model_name> [--hf <hf_path>] [--pf <pf_path>] [--mode logits\|loss\|train]` | 对齐 PaddleFormers 与 HuggingFace 的数值输出 |
+
+### 测试
+
+| Command | 用法 | 说明 |
+|---------|------|------|
+| `/test-gen` | `/test-gen <目标文件或类路径> <覆盖率>` | 生成测试脚本，达到目标覆盖率 |
+
+### 资源受限场景
+
+| Command | 用法 | 说明 |
+|---------|------|------|
+| `/shrink-config` | `/shrink-config <模型路径> [--layers N] [--ratio R] [--vram G] [--auto-vram] [--out PATH]` | 生成缩层 config.json，自动探测 GPU 显存估算目标层数，同步生成过滤后的权重索引文件 |
+
+### 知识库维护
+
+| Command | 用法 | 说明 |
+|---------|------|------|
+| `/bootstrap` | `/bootstrap [路径]` | 分析代码库，初始化 `.agent/refs/` 知识库 |
+| `/reflect` | `/reflect [说明]` | 根据近期任务经验更新知识库（failures/patterns/symbols） |
+| `/import-dep` | `/import-dep <依赖库路径> [--name 别名] [--refresh]` | 将外部依赖库的公共 API 导入为依赖描述（仅导入本库实际用到的部分） |
+| `/refresh-dep` | `/refresh-dep [<name>]` | 验证已导入依赖的符号签名是否仍有效，标记失效条目 |
+| `/ref-from` | `/ref-from <参考库路径>` | 从另一个代码库提取实现模式作为参考（无调用关系） |
+| `/gen-command` | `/gen-command [需求描述\|--suggest\|--list\|--create <name>]` | 生成新的定制 command，或分析代码库建议应新增哪些 command |
+
+---
+
+## 知识库结构
+
+```
+.agent/refs/
+├── CODEBASE.md          # 代码库架构概览、扩展点索引
+├── conventions.md       # 编码规范（命名、错误处理、导入顺序等）
+├── patterns.md          # 扩展模式（添加新模型、新 Callback 等步骤）
+├── symbols.md           # 核心类/接口符号表（路径 + 签名）
+├── failures.md          # 失败经验积累（错误类型、根因、修正方式）
+├── shadow-state.md      # 当前处于 stub 状态的目标列表
+├── refs-registry.md     # 已注册的参考库列表
+├── command-suggestions.md  # 待生成的 command 建议
+├── deps.md              # 外部依赖库注册表
+├── deps/
+│   └── PaddleFleet/
+│       ├── symbols.md   # PaddleFleet 中本库实际使用的符号（42 个）
+│       └── conventions.md  # 两库共享的编码约定
+└── refs/                # 参考库知识（由 /ref-from 导入）
+```
+
+---
+
+## 已导入依赖
+
+| 依赖 | 路径 | 符号数 | 导入时间 |
+|------|------|--------|----------|
+| PaddleFleet | `/root/.../PaddleFleet` | 42 | 2026-05-26 |
+
+---
+
+## 行为规则摘要
+
+- 执行任何代码任务前，自动读取 `CODEBASE.md` 了解架构
+- 在 `symbols.md` 找不到符号时，依次查阅 `deps/{name}/symbols.md`
+- 任务失败时，查阅 `failures.md` 中的已知解法，最多重试 3 次
+- 每次重试前更新 refs（缺什么补什么）
+- 生成代码时，注释中标注参考了哪条 refs 规则
+
+详见 `CLAUDE.md`。
