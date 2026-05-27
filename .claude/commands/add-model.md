@@ -30,6 +30,22 @@
 
 ---
 
+## Step 2.5：忽略 Shadow 备份（强制规则）
+
+检查 `.agent/shadows/` 下是否存在同名备份目录（如 `.agent/shadows/pkg_{model_name}/`）。
+
+**无论是否存在同名备份，必须忽略备份代码，不得使用。**
+
+`/add-model` 的职责是从参考库重新实现，而非恢复备份。备份的存在不影响实现路径：
+
+- ✅ 允许：读取 `.agent/shadows/pkg_{model_name}/description.md`（功能描述，仅供参考架构理解）
+- ❌ 禁止：直接复制、读取或参考备份目录下的任何 `.py` 文件（`*_modeling.py`、`*_configuration.py` 等）
+- ❌ 禁止：使用 `cp` 将备份文件还原到目标路径
+
+若需要恢复备份，应运行 `/rollback {model_name}`，而非 `/add-model`。
+
+---
+
 ## Step 3：查阅 HF 参考库（若已注册）
 
 读取 `.agent/refs/refs-registry.md`，检查是否有已注册的 HuggingFace 参考库。
@@ -332,80 +348,7 @@ register_template(
 
 ---
 
-## Step 13：生成测试骨架
-
-在 `tests/transformers/{model_name}/` 下创建：
-
-**`__init__.py`**（空文件）
-
-**`test_modeling.py`**（ref: patterns.md#标准单元测试结构）：
-
-```python
-# Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
-# ...
-from __future__ import annotations
-
-import unittest
-
-import paddle
-
-from paddleformers.transformers import {ConfigClassName}, {ForCausalLMClassName}, {ModelClassName}Model
-from tests.testing_utils import require_package
-from tests.transformers.test_modeling_common import ModelTesterMixin, ids_tensor
-
-
-class {ModelClassName}ModelTester:
-    def __init__(
-        self,
-        parent,
-        vocab_size=200,
-        hidden_size=64,
-        num_hidden_layers=2,
-        num_attention_heads=4,
-        num_key_value_heads=2,
-        batch_size=2,
-        seq_length=16,
-    ):
-        self.parent = parent
-        self.vocab_size = vocab_size
-        self.hidden_size = hidden_size
-        self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
-        self.num_key_value_heads = num_key_value_heads
-        self.batch_size = batch_size
-        self.seq_length = seq_length
-
-    def get_config(self):
-        return {ConfigClassName}(
-            vocab_size=self.vocab_size,
-            hidden_size=self.hidden_size,
-            num_hidden_layers=self.num_hidden_layers,
-            num_attention_heads=self.num_attention_heads,
-            num_key_value_heads=self.num_key_value_heads,
-        )
-
-    def prepare_config_and_inputs(self):
-        input_ids = ids_tensor([self.batch_size, self.seq_length], self.vocab_size)
-        config = self.get_config()
-        return config, input_ids
-
-
-class {ModelClassName}ModelTest(ModelTesterMixin, unittest.TestCase):
-    all_model_classes = ({ModelClassName}Model, {ForCausalLMClassName})
-
-    def setUp(self):
-        self.model_tester = {ModelClassName}ModelTester(self)
-
-    # TODO: 添加具体测试方法
-
-
-if __name__ == "__main__":
-    unittest.main()
-```
-
----
-
-## Step 14：验证注册完整性
+## Step 13：验证注册完整性
 
 逐条检查：
 
@@ -415,7 +358,6 @@ if __name__ == "__main__":
 - [ ] `auto/modeling.py` → `MAPPING_NAMES` 包含 `"{ModelClassName}"`
 - [ ] `paddleformers/transformers/__init__.py` → `import_structure` 包含 `"{model_name}"` 键
 - [ ] （若 `needs_template=True`）`template.py` 末尾有 `register_template(name="{model_name}", ...)`
-- [ ] `tests/transformers/{model_name}/test_modeling.py` 已创建
 
 ---
 
@@ -455,12 +397,9 @@ Auto 注册：
 Chat Template（自动检测结果）：
   {✓ 从参考库 chat_template 推断并注册 name="{model_name}" | ✗ 未检测到 chat_template，跳过 | ✗ 已有同名模板，跳过}
 
-测试骨架：
-  tests/transformers/{model_name}/test_modeling.py
-
 下一步：
   1. 在 modeling.py 中实现 forward 方法（当前为 raise NotImplementedError）
-  2. 运行测试：DOWNLOAD_SOURCE=aistudio PYTHONPATH=. pytest tests/transformers/{model_name}/
+  2. 运行 /test-gen {model_name} 生成测试用例
   3. 若需要 LoRA 支持，在 paddleformers/peft/lora/ 中添加目标模块映射
   4. （若尚未添加参考库）运行 /ref-from <hf_transformers_path> 后再用 /extend 填充 modeling.py
 ```

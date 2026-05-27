@@ -18,6 +18,22 @@
 - **有价值的领域**: （列出）
 -->
 
+## diffusers
+- **路径**: /root/paddlejob/share-storage/gpfs/system-public/qinhuapeng/diffusers
+- **refs 来源**: 从源码提取（无 .agent/refs/，有 commands/ 目录但无 refs/）
+- **导入时间**: 2026-05-27
+- **聚焦领域**: 扩散模型（全量初步参考）
+- **已提取模式数**: 8 条
+- **有价值的领域**:
+  - Scheduler 接口（SchedulerMixin + set_timesteps/step）
+  - Beta Schedule（linear/cosine/squaredcos 等）
+  - Timestep Embedding（正弦编码 + MLP 投影）
+  - UNet 条件架构（block 工厂 + skip connection + cross-attention）
+  - Attention Processor（可插拔 per-layer 替换）
+  - VAE + Latent Scaling（AutoencoderKL + scaling_factor）
+  - Pipeline 编排（多组件注册 + denoise loop）
+  - Classifier-Free Guidance（CFG + guidance_rescale）
+
 ## transformers
 - **路径**: /root/paddlejob/share-storage/gpfs/system-public/qinhuapeng/transformers
 - **refs 来源**: 从源码提取（无 .agent/refs/）

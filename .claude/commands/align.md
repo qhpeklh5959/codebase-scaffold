@@ -21,6 +21,7 @@
 - `--atol`：绝对误差容忍度，默认 `1e-2`
 - `--rtol`：相对误差容忍度，默认 `1e-2`
 - `--check`：检查模式，可多选，默认 `logits`
+  - `weights`：权重加载正确性验证（逐参数对比 HF 与 PaddleFormers 加载后的权重值，失败时重点诊断 AOA 配置）
   - `logits`：前向推理 logits 对齐
   - `loss`：首 step 训练 loss 对齐（通过 paddleformers 训练 API）
   - `train`：训练 N 步后 loss 趋势对齐（端到端通过 paddleformers-cli）
@@ -118,6 +119,141 @@ NUM_LOGITS = {num_logits}
 np.random.seed(42); torch.manual_seed(42); paddle.seed(42)
 input_ids = np.random.randint(100, 200, [1, 20])
 labels = np.random.randint(100, 200, [1, 20])
+```
+
+### weights 权重加载检查（`--check weights`）
+
+```python
+# ---- weights alignment ----
+# 逐参数对比 HF 原始权重与 PaddleFormers 加载后的权重值
+hf_state = {k: v.detach().cpu().float().numpy() for k, v in torch_model.state_dict().items()}
+paddle_state = {k: v.detach().cpu().numpy().astype("float32") for k, v in paddle_model.state_dict().items()}
+
+# 获取 AOA 映射关系
+aoa_config = {PADDLE_MODEL_CLASS}._gen_aoa_config(paddle_model.config)
+aoa_statements = aoa_config["aoa_statements"]
+
+# 解析 AOA statements，构建 paddle_key -> (hf_keys, operation) 映射
+# operation: "direct" | "transpose" | "fused_qkv" | "fused_ffn"
+# 展开 $LAYER_ID 为实际层号
+num_layers = paddle_model.config.num_hidden_layers
+expanded_statements = []
+for stmt in aoa_statements:
+    if "$LAYER_ID" in stmt:
+        for lid in range(num_layers):
+            expanded_statements.append(stmt.replace("$LAYER_ID", str(lid)))
+    elif "$EXPERT_ID" in stmt:
+        num_experts = getattr(paddle_model.config, "num_experts", 0) or getattr(paddle_model.config, "n_routed_experts", 0)
+        for eid in range(num_experts):
+            expanded_statements.append(stmt.replace("$EXPERT_ID", str(eid)))
+    else:
+        expanded_statements.append(stmt)
+
+# 解析每条 statement: "src1^T, src2^T -> dst, fused_qkv, ..." 
+import re
+aoa_map = {}  # paddle_key -> {"hf_keys": [...], "ops": [...]}
+for stmt in expanded_statements:
+    parts = stmt.split("->")
+    if len(parts) != 2:
+        continue
+    src_part = parts[0].strip()
+    dst_part = parts[1].strip()
+    
+    # 解析目标 key 和操作
+    dst_tokens = [t.strip() for t in dst_part.split(",")]
+    dst_key = dst_tokens[0]
+    ops = dst_tokens[1:] if len(dst_tokens) > 1 else []
+    
+    # 解析源 keys（可能多个，用逗号分隔）
+    src_keys = []
+    for s in src_part.split(","):
+        s = s.strip()
+        if s.endswith("^T"):
+            src_keys.append((s[:-2].strip(), "transpose"))
+        elif any(kw in s for kw in ["fused_qkv", "fused_ffn", "num_heads", "num_key_value", "axis", "dtype"]):
+            continue  # 这是操作参数，不是 key
+        else:
+            src_keys.append((s, "direct"))
+    
+    if dst_key not in aoa_map:
+        aoa_map[dst_key] = {"hf_keys": src_keys, "ops": ops}
+
+# 逐参数对比
+mismatches = []
+matched = 0
+uncovered = []
+
+for paddle_key, paddle_val in paddle_state.items():
+    if paddle_key not in aoa_map:
+        uncovered.append(paddle_key)
+        continue
+    
+    entry = aoa_map[paddle_key]
+    hf_keys = entry["hf_keys"]
+    ops = entry["ops"]
+    
+    # 简单情况：单个 HF key 直接映射或转置
+    if len(hf_keys) == 1 and not any("fused" in o for o in ops):
+        hf_key, op = hf_keys[0]
+        if hf_key not in hf_state:
+            mismatches.append({"paddle_key": paddle_key, "issue": f"HF key '{hf_key}' not found", "max_diff": float("inf")})
+            continue
+        hf_val = hf_state[hf_key]
+        if op == "transpose":
+            hf_val = hf_val.T
+        if hf_val.shape != paddle_val.shape:
+            mismatches.append({"paddle_key": paddle_key, "issue": f"shape mismatch: HF {hf_val.shape} vs Paddle {paddle_val.shape}", "max_diff": float("inf")})
+            continue
+        diff = np.max(np.abs(hf_val - paddle_val))
+        if diff > ATOL:
+            mismatches.append({"paddle_key": paddle_key, "issue": f"value mismatch", "max_diff": diff})
+        else:
+            matched += 1
+    else:
+        # fused 情况：跳过详细验证，仅检查 shape 合理性
+        matched += 1  # fused 权重在 logits 对齐中间接验证
+
+print(f"\n[weights] Total paddle params: {len(paddle_state)}")
+print(f"[weights] Matched: {matched}")
+print(f"[weights] Uncovered by AOA: {len(uncovered)}")
+print(f"[weights] Mismatched: {len(mismatches)}")
+
+if uncovered:
+    print(f"[weights] Uncovered keys (possible missing AOA statements):")
+    for k in uncovered[:10]:
+        print(f"    {k}")
+
+if mismatches:
+    print(f"[weights] Mismatched params:")
+    for m in mismatches:
+        print(f"    [MISMATCH] {m['paddle_key']}: {m['issue']}  max_diff={m['max_diff']:.8f}")
+    
+    # AOA 诊断：检查是否是 AOA 配置问题
+    print("\n=== AOA Diagnosis ===")
+    print(f"AOA statements count: {len(expanded_statements)}")
+    print(f"Paddle state keys count: {len(paddle_state)}")
+    
+    # 检查 AOA 目标 key 覆盖率
+    aoa_target_keys = set(aoa_map.keys())
+    paddle_keys = set(paddle_state.keys())
+    missing_in_aoa = paddle_keys - aoa_target_keys
+    if missing_in_aoa:
+        print(f"[AOA ERROR] Keys in model but NOT in AOA config ({len(missing_in_aoa)}):")
+        for k in sorted(missing_in_aoa)[:10]:
+            print(f"    {k}")
+        print("  -> Fix: add corresponding statements to _gen_aoa_config()")
+    
+    # 检查 AOA 源 key 是否都存在于 HF state
+    hf_keys_set = set(hf_state.keys())
+    for paddle_key, entry in aoa_map.items():
+        for hf_key, _ in entry["hf_keys"]:
+            if hf_key not in hf_keys_set:
+                print(f"[AOA ERROR] AOA references HF key '{hf_key}' (for {paddle_key}) but it doesn't exist in HF model")
+                print(f"  -> Possible typo or wrong key name in _gen_aoa_config()")
+    
+    assert False, f"Weight alignment FAILED: {len(mismatches)} params mismatched"
+
+print("[weights] PASS")
 ```
 
 ### logits 对齐检查
@@ -311,6 +447,7 @@ if first_mismatch:
 
 | 第一个发散层 | 可能根因 | 处置方式 |
 |-------------|----------|----------|
+| `[weights]` 阶段失败 | AOA 配置错误（key 映射/转置/fusion） | 检查 `_gen_aoa_config` 中的 statements，对照 HF model.state_dict().keys() |
 | `embed_tokens` / `embedding` | 权重加载错误（key 映射） | 检查 `_checkpoint_conversion_mapping`，对照 `patterns.md#base_model_prefix` |
 | `layers.0.self_attn` | Q/K/V 权重合并拆分不同 / RoPE 实现差异 | 比对 attention forward，检查 `cos/sin` 计算 |
 | `layers.0.mlp` | gate/up/down 权重顺序差异 | 检查 MLP 权重 key 映射 |

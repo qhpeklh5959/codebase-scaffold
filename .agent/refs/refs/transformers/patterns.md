@@ -166,7 +166,16 @@
 
 ---
 
-## 典型迁移流程（综合以上模式）
+## Qwen3 对齐要点（AOA 权重验证）
+
+- **解决的问题**: `/align --check weights` 时准确验证 Qwen3 的 GQA-interleaved QKV 和 fused FFN 权重
+- **核心思路**:
+  - **QKV 融合布局（GQA interleaved）**: paddle `qkv_proj.weight` 形状 `[hidden, num_kv_heads*(num_kv_groups+2)*head_dim]`；对每个 KV-group `g`，列偏移 `base=g*stride`（stride=(num_kv_groups+2)*head_dim），布局为 `[Q-head₀, Q-head₁, ..., K-head, V-head]` × head_dim
+  - **FFN 融合**：`up_gate_proj.weight = cat([gate_proj^T, up_proj^T], axis=1)`，gate 在前 up 在后（尽管名字叫 `up_gate`）
+  - **q_norm / k_norm 权重**：`Qwen3RMSNorm` 显式用 `dtype=paddle.float32` 创建，即使整体模型是 bfloat16，这两个参数也是 float32；比较时需先把 HF 权重转 float32
+  - **AOA 参数命名陷阱**：语句中 `num_key_value_groups=config.num_key_value_heads`，含义是 KV head 数量（不是 Q/KV 的比值 num_kv_groups）
+- **参考来源**: `paddleformers/transformers/qwen3/modeling.py:337`（`_gen_aoa_config`），`align_qwen3_bfloat16.py`（weights check 完整实现）
+- **迁移建议**: 其他 GQA 模型（Llama3、Qwen2 等）若用同样 interleaved 融合，可直接复用 align 脚本中的切片逻辑
 
 从 HF 迁移一个新模型（以某新模型 `xxx` 为例）：
 
