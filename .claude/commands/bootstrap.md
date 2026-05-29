@@ -141,3 +141,21 @@
 - 测试运行命令
 - 建议的定制 commands 列表（名称 + 一句话描述）
 - 下一步建议（如：运行 `/gen-command --create <name>` 生成某个定制 command）
+
+### Trace 任务建议
+
+基于 symbols.md 中已识别的符号，给出 3~5 个 `/trace` 建议，帮助用户深入理解核心调用链。选取原则：
+
+1. **入口方法**：main/启动流程中调用的第一个业务方法
+2. **核心业务方法**：核心类中职责最重要的 public 方法（通常是 create/process/handle 类）
+3. **扩展点实现**：接口中最关键的方法，选一个已有实现类来 trace
+4. **跨层调用**：从 API/Controller 层穿透到 Service 再到 Repository/DAO 的典型链路
+
+输出格式：
+
+```
+建议的 trace 任务（按优先级排序）：
+1. /trace ClassName.methodName  — 理由：一句话说明为什么这条链路值得追踪
+2. /trace ...
+...
+```
