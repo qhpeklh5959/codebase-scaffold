@@ -13,6 +13,7 @@
 
 - `.agent/refs/` 下的文件只记录**观察到的结论和规律**，不粘贴原始代码
 - 每条记录注明来源文件路径（如 `src/core/UserService.java:42`）
+- **路径只写相对于所在代码库根目录的相对路径**，不写任何本机绝对路径（如 `/home/user/...`、`/Users/...`、`C:\...`）；跨库引用时用别名代替绝对路径（如 `deps/codebase-a/` 而非 `/home/user/projects/codebase-a/`）
 - 发现 refs 内容有误或遗漏时，**当场修正**，不等到失败才改
 - `failures.md` 按错误类型归类，同类错误合并，不按时间堆积
 

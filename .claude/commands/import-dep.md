@@ -66,7 +66,7 @@
 # {dep-name} 公共 API（当前库使用的部分）
 
 ## 类 / 接口
-- ClassName: 职责描述 | {dep-path}/src/...:行号
+- ClassName: 职责描述 | src/...:行号（相对于依赖库根目录的路径）
   - methodName(params): ReturnType — 描述 | 行号
 
 ## 注意事项
@@ -89,7 +89,7 @@
 
 ```markdown
 ## {name}
-- **路径**: {DEP_PATH}
+- **别名**: {name}
 - **refs 来源**: {有 refs / 从源码提取}
 - **导入时间**: {今天日期}
 - **当前库中的使用方**: （列出依赖它的本库文件，来自 Step 2）
