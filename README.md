@@ -54,7 +54,52 @@ cp -r /path/to/codebase-agent/.agent .
 /bootstrap /path/to/your/project
 ```
 
-### 3. 开始使用
+### 3. 初次进入代码库：典型工作流
+
+以一个 Java Spring Boot 项目为例，从零开始理解并开发：
+
+```bash
+# Step 1：初始化知识库（分析目录结构、提取符号、归纳规范）
+/bootstrap
+
+# bootstrap 完成后，agent 会输出类似：
+# 建议的 trace 任务：
+# 1. /trace UserController.createUser  — 入口链路，了解请求如何流转
+# 2. /trace UserService.createUser     — 核心业务方法
+# 3. /trace UserRepository.save        — 持久化层实现
+
+# Step 2：按建议追踪核心调用链，建立对代码库的立体认知
+/trace UserController.createUser
+
+# Step 3：若依赖了外部库（如 common-utils），导入其接口描述
+/import-dep ../common-utils --name common-utils
+
+# Step 4：若有参考库可借鉴实现思路（如另一个服务的缓存方案）
+/ref-from ../order-service --name order-service --focus "缓存层实现"
+
+# Step 5：让 agent 分析代码库，建议适合封装的定制 command
+/gen-command --suggest
+# 输出示例：
+# - gen-controller：为新 API 生成 Controller + Service + Repository 三件套
+# - run-migration：清理 + 构建 + 执行数据库 migration
+
+# 生成建议中的 command
+/gen-command --create gen-controller
+
+# 或直接描述需求生成
+/gen-command 为每个新 API 接口生成 Controller + Service + Repository 三件套骨架
+
+# Step 6：开始实现新功能
+/extend 实现 UserService.updateProfile 方法，支持修改昵称和头像
+
+# Step 7：生成测试
+/test-gen src/service/UserService.java 85
+
+# Step 8：任务结束后更新知识库
+/reflect
+```
+
+### 4. 开始使用
 
 ```bash
 # 实现一个方法
