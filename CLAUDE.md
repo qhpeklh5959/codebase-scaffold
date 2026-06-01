@@ -13,8 +13,30 @@
 
 - `.agent/refs/` 下的文件只记录**观察到的结论和规律**，不粘贴原始代码
 - 每条记录注明来源文件路径（如 `src/core/UserService.java:42`）
+- **路径只写相对于所在代码库根目录的相对路径**，不写任何本机绝对路径（如 `/home/user/...`、`/Users/...`、`C:\...`）；跨库引用时用别名代替绝对路径（如 `deps/codebase-a/` 而非 `/home/user/projects/codebase-a/`）
 - 发现 refs 内容有误或遗漏时，**当场修正**，不等到失败才改
 - `failures.md` 按错误类型归类，同类错误合并，不按时间堆积
+
+## refs 文件拆分规则
+
+单个 refs 文件超过 200 行时，按主题拆分为多个子文件：
+
+**命名规则**：`{原文件名}-{主题}.md`，主题用英文 kebab-case，例如：
+- `symbols.md` 过长 → `symbols-service.md`、`symbols-repository.md`、`symbols-domain.md`
+- `conventions.md` 过长 → `conventions-naming.md`、`conventions-error-handling.md`
+- `patterns.md` 过长 → `patterns-extension.md`、`patterns-testing.md`
+
+**原文件变为索引**，只保留各子文件的主题说明和链接：
+
+```markdown
+# symbols 索引
+> 文件过长已按主题拆分，按需读取对应子文件：
+- [symbols-service.md](symbols-service.md) — Service 层公共类和方法
+- [symbols-repository.md](symbols-repository.md) — Repository/DAO 层接口
+- [symbols-domain.md](symbols-domain.md) — 领域模型和值对象
+```
+
+**查找规则**：执行任务时，先读索引文件确定主题分布，再按需加载相关子文件，不需要全量读取所有子文件。
 
 ## 依赖符号查找规则
 
