@@ -111,9 +111,45 @@ claude
 
 ## 已导入依赖
 
+路径均相对于 PaddleFormers 项目根目录。
+
 | 依赖 | 路径 | 符号数 | 导入时间 |
 |------|------|--------|----------|
-| PaddleFleet | `/root/.../PaddleFleet` | 42 | 2026-05-26 |
+| PaddleFleet | `../PaddleFleet` | 42 | 2026-05-26 |
+
+### 已注册参考库
+
+| 参考库 | 路径 | 模式数 | 导入时间 |
+|--------|------|--------|----------|
+| transformers | `../transformers` | 7 | 2026-05-25 |
+| diffusers | `../diffusers` | 11 | 2026-05-28 |
+
+---
+
+## 跨库功能准备
+
+### 依赖库（有调用关系）— `/import-dep`
+
+当本库代码直接 `import` 另一个库的符号时，需要先导入其 API 描述，供 Agent 理解符号签名：
+
+```bash
+/import-dep ../PaddleFleet --name PaddleFleet
+```
+
+导入后，Agent 在 `symbols.md` 找不到符号时会自动查阅 `deps/{name}/symbols.md`。
+
+### 参考库（无调用关系）— `/ref-from`
+
+当需要借鉴另一个库的实现模式（如迁移模型架构）时：
+
+```bash
+/ref-from ../transformers
+/ref-from ../diffusers
+```
+
+导入后，Agent 实现新功能时会自动查阅 `refs/{name}/patterns.md` 作为参考。
+
+> **注意**：两个命令均要求目标库在本机可访问，路径相对于项目根目录。若目标库不在本机，需先克隆到对应路径。
 
 ---
 

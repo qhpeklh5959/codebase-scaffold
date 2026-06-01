@@ -8,7 +8,7 @@
 
 <!-- 新增格式：
 ## {name}
-- **路径**: 依赖库根目录路径
+- **路径**: 依赖库根目录路径（相对于 PaddleFormers 项目根目录）
 - **refs 来源**: 有 refs（直接读取）| 从源码提取
 - **导入时间**: YYYY-MM-DD
 - **当前库中的使用方**: （本库中依赖它的文件列表）
@@ -17,7 +17,7 @@
 -->
 
 ## PaddleFleet
-- **路径**: /root/paddlejob/share-storage/gpfs/system-public/qinhuapeng/PaddleFleet
+- **路径**: ../PaddleFleet
 - **refs 来源**: 有 refs（直接读取）
 - **导入时间**: 2026-05-26
 - **当前库中的使用方**:

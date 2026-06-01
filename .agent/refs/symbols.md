@@ -50,6 +50,37 @@
 
 ## 核心类
 
+- **Qwen3Config(PretrainedConfig)**: Qwen3 模型配置 | paddleformers/transformers/qwen3/configuration.py:21
+  - `model_type = "qwen3"`
+  - 关键字段：`vocab_size`, `hidden_size`, `intermediate_size`, `num_hidden_layers`, `num_attention_heads`, `num_key_value_heads`, `head_dim`, `rms_norm_eps`, `rope_theta`, `rope_scaling`, `use_sliding_window`, `sliding_window`, `max_window_layers`, `layer_types`, `attention_bias`
+  - `layer_types`：每层 attention 类型列表（`"full_attention"` / `"sliding_attention"`），None 时自动生成
+
+- **Qwen3PretrainedModel(PretrainedModel)**: Qwen3 模型基类 | paddleformers/transformers/qwen3/modeling.py
+  - 持有 `_gen_aoa_config` / `_gen_inv_aoa_config` 静态方法，定义 HF↔PaddleFormers 权重映射（AOA）
+
+- **Qwen3Model(Qwen3PretrainedModel)**: Qwen3 Transformer decoder 主体 | paddleformers/transformers/qwen3/modeling.py:480
+  - `@register_base_model`；`forward` 返回 `BaseModelOutputWithPast`
+  - 子层：`embed_tokens`（GeneralEmbedding）、`layers`（Qwen3DecoderLayer 列表）、`norm`（GeneralNorm RMSNorm）、`rotary_emb`（Qwen3RotaryEmbedding）
+
+- **Qwen3ForCausalLM(Qwen3PretrainedModel)**: Fleet 版 Causal LM（生产训练用）| paddleformers/transformers/qwen3/modeling.py:643
+  - `is_fleet = True`；`__new__` 返回 `Qwen3ModelProvider.provide()` 的 GPT provider 对象
+  - 不支持直接 `from_pretrained` 对齐；用于 `paddleformers-cli train` 端到端训练
+
+- **Qwen3ForCausalLMDeprecated(Qwen3PretrainedModel)**: formers 原生 Causal LM（fleet 版出现前的实现，已废弃，保留用于对齐/推理测试）| paddleformers/transformers/qwen3/modeling.py:665
+  - 标准 `PretrainedModel` 子类，支持 `from_pretrained`；含 `Qwen3Model` + `GeneralLMHead` + `CriterionLayer`
+  - `_tied_weights_keys = ["lm_head.weight"]`；`enable_to_static_method = True`
+
+- **Qwen3ForSequenceClassification(Qwen3PretrainedModel)**: 序列分类 | paddleformers/transformers/qwen3/modeling.py:737
+- **Qwen3ForTokenClassification(Qwen3PretrainedModel)**: Token 分类 | paddleformers/transformers/qwen3/modeling.py:825
+- **Qwen3SentenceEmbedding(Qwen3PretrainedModel)**: 句向量/对比学习 | paddleformers/transformers/qwen3/modeling.py:882
+- **Qwen3ForCausalLMPipe(Qwen3PretrainedModel, GeneralModelForCausalLMPipe)**: Pipeline Parallel 版 | paddleformers/transformers/qwen3/modeling.py:936
+
+- **Qwen3RMSNorm(nn.Layer)**: 每头 QK-Norm，作用于 head_dim 维度 | paddleformers/transformers/qwen3/modeling.py:119
+  - `weight` 显式创建为 `float32`（即使模型为 bfloat16）；forward 内部转 float32 计算后还原输入 dtype
+
+- **Qwen3ModelProvider(GPTModelProvider)**: Fleet 模型 provider dataclass | paddleformers/transformers/qwen3/modeling.py:61
+  - `use_qk_norm=True`；`transform_rules = {"dtype": "params_dtype"}`
+
 - **LlamaConfig(PretrainedConfig)**: Llama 系列模型配置 | paddleformers/transformers/llama/configuration.py:19
   - 字段: `vocab_size`, `hidden_size`, `num_hidden_layers`, `num_attention_heads`, `num_key_value_heads`, `rope_theta`, `rope_scaling`
   - `model_type = "llama"`

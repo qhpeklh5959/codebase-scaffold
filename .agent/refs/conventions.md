@@ -64,6 +64,16 @@ else:
 - 模型层使用 `paddleformers.nn.Linear`（不直接用 `paddle.nn.Linear`）以支持 TP
 - Pipe 变体（`XxxForCausalLMPipe`）继承 `GeneralModelForCausalLMPipe` 以支持 PP
 
+## 跨库路径约定
+
+- `deps.md` 和 `refs-registry.md` 中的 **路径** 字段均相对于 **PaddleFormers 项目根目录**（即 `../SiblingLib`，而非相对于文件自身）
+- overview.md 等子文件中的路径说明同样以项目根为基准，需标注"相对于 PaddleFormers 项目根目录"
+- Agent 解析路径时，以 `os.path.join(project_root, path)` 展开，而非相对于 `.agent/refs/` 目录
+
+来源：`.agent/refs/deps.md`、`.agent/refs/refs-registry.md`（2026-05-29 规范化）
+
+---
+
 ## 测试规范
 - 测试类命名：`class XxxModelTester`（配置 tester）+ `class XxxModelTest(ModelTesterMixin, unittest.TestCase)`
 - 混入类：`ModelTesterMixin`、`ModelTesterPretrainedMixin`、`GenerationTesterMixin`（在 `tests/transformers/test_modeling_common.py`）

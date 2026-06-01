@@ -17,7 +17,7 @@ paddleformers/
 │   ├── ernie4_5/       # ERNIE 4.5 密集模型
 │   ├── ernie4_5_moe/   # ERNIE 4.5 MoE 模型
 │   ├── ernie4_5_moe_vl/# ERNIE 4.5 多模态（含 VL）
-│   ├── qwen*/          # Qwen 系列（qwen2, qwen2_vl, qwen3, qwen3_vl 等）
+│   ├── qwen*/          # Qwen 系列（qwen2, qwen2_vl, qwen3, qwen3_moe, qwen3_vl 等）
 │   ├── deepseek_v3/    # DeepSeek-V3
 │   ├── configuration_utils.py  # PretrainedConfig 基类
 │   ├── model_utils.py          # PretrainedModel 基类
@@ -71,6 +71,13 @@ examples/               # 配置示例（YAML 训练配置文件）
 - `LossInterface` — loss 函数注册表（sft/dpo/kto/mtp_sft）
 - `BasePlugin` (datasets/template/mm_plugin.py) — 多模态插件扩展点
 - `Template` (datasets/template/template.py) — 对话模板扩展点
+
+## 双版本模型模式（Fleet vs Deprecated）
+仅当模型在 fleet 中已有完整实现时才出现双版本：
+- `XxxForCausalLM`：fleet 版（正式），`__new__` 返回 GPT provider，用于生产训练
+- `XxxForCausalLMDeprecated`：formers 原生版（已废弃），保留用于对齐验证和推理测试
+正常情况（fleet 无实现）只有单版本 `XxxForCausalLM`，直接继承 `PretrainedModel`。
+详见 `patterns-model-extension.md#Fleet 版 vs Deprecated 版`
 
 ## 测试框架和运行命令
 ```bash

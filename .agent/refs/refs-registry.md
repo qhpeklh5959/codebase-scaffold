@@ -10,7 +10,7 @@
 
 <!-- 新增格式：
 ## {name}
-- **路径**: 参考库根目录路径
+- **路径**: 参考库根目录路径（相对于 PaddleFormers 项目根目录）
 - **refs 来源**: 有 refs（直接读取）| 从源码提取
 - **导入时间**: YYYY-MM-DD
 - **聚焦领域**: 全量 | 缓存 / 认证 / 错误处理 等
@@ -19,11 +19,11 @@
 -->
 
 ## diffusers
-- **路径**: /root/paddlejob/share-storage/gpfs/system-public/qinhuapeng/diffusers
+- **路径**: ../diffusers
 - **refs 来源**: 从源码提取（无 .agent/refs/，有 commands/ 目录但无 refs/）
-- **导入时间**: 2026-05-27
-- **聚焦领域**: 扩散模型（全量初步参考）
-- **已提取模式数**: 8 条
+- **导入时间**: 2026-05-28（--refresh 更新）
+- **聚焦领域**: 全量（新增 hooks/guiders/training_utils 领域）
+- **已提取模式数**: 11 条
 - **有价值的领域**:
   - Scheduler 接口（SchedulerMixin + set_timesteps/step）
   - Beta Schedule（linear/cosine/squaredcos 等）
@@ -33,9 +33,13 @@
   - VAE + Latent Scaling（AutoencoderKL + scaling_factor）
   - Pipeline 编排（多组件注册 + denoise loop）
   - Classifier-Free Guidance（CFG + guidance_rescale）
+  - ModelHook 推理加速框架（FasterCache / PyramidAttentionBroadcast）
+  - BaseGuidance 引导策略体系（CFG/APG/SEG 统一抽象）
+  - SNR 加权训练损失（Min-SNR，compute_snr）
+  - GroupOffloading（显存-内存分组异步卸载）
 
 ## transformers
-- **路径**: /root/paddlejob/share-storage/gpfs/system-public/qinhuapeng/transformers
+- **路径**: ../transformers
 - **refs 来源**: 从源码提取（无 .agent/refs/）
 - **导入时间**: 2026-05-25
 - **聚焦领域**: 具体模型实现 + 两边接口对应关系（用于模型迁移）

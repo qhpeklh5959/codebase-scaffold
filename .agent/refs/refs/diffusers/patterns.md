@@ -85,3 +85,51 @@
   `guidance_rescale` 可进一步修正过曝问题（rescale_noise_cfg）
 - **参考来源**: src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py:69（rescale_noise_cfg）
 - **迁移建议**: 训练侧需在 dataset/template 层支持条件 drop；推理侧在 pipeline 的 denoise loop 中实现
+
+## ModelHook 推理加速框架（FasterCache / PyramidAttentionBroadcast）
+- **解决的问题**: 扩散模型推理时每步计算量大，相邻时间步的 attention 输出高度相似，可复用
+- **核心思路**:
+  - `ModelHook` 基类提供 `pre_forward` / `post_forward` 钩子，通过 `HookRegistry` 附加到模型层
+  - `FasterCache`：每 N 步才真正计算 attention，中间步直接复用缓存；支持按 timestep 范围控制 skip 区间
+  - `PyramidAttentionBroadcast`：对 spatial/temporal/cross-attention 分别配置不同的 skip_range；
+    pyramid 结构指浅层频繁计算、深层可更多跳过
+  - `StateManager` 管理每个 hook 的状态，支持多上下文（unconditional/conditional 分开缓存）
+- **参考来源**: src/diffusers/hooks/hooks.py:59（ModelHook/HookRegistry）
+  src/diffusers/hooks/faster_cache.py:50（FasterCacheConfig）
+  src/diffusers/hooks/pyramid_attention_broadcast.py:40（PyramidAttentionBroadcastConfig）
+- **迁移建议**: PaddleFormers 已有 `TrainerCallback` 钩子体系（训练侧）；
+  推理侧若实现扩散模型，可参考此模式在 `paddleformers/generation/` 或 `paddleformers/diffusion/` 下
+  引入类似的 `ModelHook` 机制，对 attention 层附加缓存钩子
+
+## BaseGuidance 引导策略体系
+- **解决的问题**: CFG 之外存在多种引导算法（APG、SEG、SKL、频率解耦引导等），需统一接口管理
+- **核心思路**:
+  - `BaseGuidance(ConfigMixin)` 定义通用接口：`prepare(num_steps)` → `__call__(pred_dict)` → `post_process()`
+  - 子类通过 `_input_predictions` 列表声明所需预测名（如 `["pred_cond", "pred_uncond"]`）
+  - `start`/`stop` 参数控制在推理过程哪个比例区间内启用引导（如只在中段启用）
+  - 通过 `@register_to_config` 自动序列化，引导策略可独立保存/加载（`guider_config.json`）
+- **参考来源**: src/diffusers/guiders/guider_utils.py:38（BaseGuidance）
+  src/diffusers/guiders/classifier_free_guidance.py:30（ClassifierFreeGuidance）
+  src/diffusers/guiders/adaptive_projected_guidance.py（APG）
+- **迁移建议**: PaddleFormers 的推理目前通过 `GenerationMixin` + beam search 等控制；
+  若扩展至扩散模型推理，可参考此层次在 `generation/` 下增加 `BaseGuidance` 抽象，
+  解耦噪声预测与引导策略
+
+## SNR 加权训练损失（Min-SNR）
+- **解决的问题**: 扩散训练中不同时间步的损失权重不均衡，高噪声步（小 SNR）梯度信号弱
+- **核心思路**: `compute_snr(noise_scheduler, timesteps)` 计算每个 timestep 的信噪比（SNR = α²/σ²）；
+  训练损失乘以 `min(SNR, gamma) / SNR`（gamma 通常为 5）；
+  使高 SNR 步权重降低，低 SNR 步权重提升，使整体训练更均衡
+- **参考来源**: src/diffusers/training_utils.py:81（compute_snr）
+- **迁移建议**: PaddleFormers 的 `LossInterface` 支持自定义 loss；
+  可在 sft_loss 或新建 diffusion_loss 中加入 SNR 加权，用 `paddle.tensor.indexing` 替代 torch 索引
+
+## GroupOffloading（显存-内存分组卸载）
+- **解决的问题**: 大模型推理时显存不足，但逐层 CPU offload 传输开销大
+- **核心思路**: 将模型层分组，每次推理只将当前组加载到 GPU，处理完后卸载回 CPU（或 disk）；
+  通过 `ModelHook` 机制在 `pre_forward` 时加载、`post_forward` 时卸载；
+  支持 `pinned_memory`（锁页内存）和 CUDA stream 异步传输，减少等待
+- **参考来源**: src/diffusers/hooks/group_offloading.py（GroupOffloading）
+- **迁移建议**: PaddleFormers 的 Trainer 已有 PP（Pipeline Parallel）和 CPU offload 支持；
+  推理侧若需单卡低显存推理，可参考此 hook 模式实现轻量级 offload，
+  paddle 中对应 `paddle.device.set_device` + `tensor.cpu()/cuda()` 替代 `send_to_device`

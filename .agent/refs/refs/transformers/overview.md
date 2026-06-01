@@ -22,6 +22,6 @@ HuggingFace transformers 是 PaddleFormers 的**上游参考实现**：
 - **模型目录结构**：每个模型的文件组织与 PaddleFormers 高度一致
 
 ## 来源
-路径: /root/paddlejob/share-storage/gpfs/system-public/qinhuapeng/transformers
+路径: ../transformers（相对于 PaddleFormers 项目根目录）
 导入时间: 2026-05-25
 聚焦领域: 具体模型实现，以及两边的接口对应关系，方便将模型迁移到本库

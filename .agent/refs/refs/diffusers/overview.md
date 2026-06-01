@@ -3,7 +3,7 @@
 ## 技术栈
 - 语言: Python 3.8+
 - 框架: PyTorch（torch.nn）
-- 依赖: transformers（文本编码器）、huggingface_hub、safetensors、accelerate
+- 依赖: transformers（文本编码器）、huggingface_hub、safetensors、accelerate、peft
 
 ## 与当前库的关系
 diffusers 与 PaddleFormers 技术栈相近（都是 HuggingFace 风格的 PretrainedModel/ConfigMixin 体系），
@@ -17,8 +17,11 @@ diffusers 与 PaddleFormers 技术栈相近（都是 HuggingFace 风格的 Pretr
 - **Pipeline 编排**: 多组件（VAE+UNet+Scheduler+TextEncoder）的推理流程组织
 - **ConfigMixin + register_to_config**: 调度器/模型配置的自动序列化机制
 - **Attention Processor**: 可插拔的 attention 实现（AttnProcessor），支持运行时替换
+- **ModelHook 推理加速缓存**: FasterCache / PyramidAttentionBroadcast / GroupOffloading，通过 hook 机制跳过冗余计算
+- **BaseGuidance 引导策略体系**: CFG 及多种高级引导算法的统一抽象层
+- **SNR 加权训练损失**: Min-SNR 损失加权，改善扩散模型训练稳定性
 
 ## 来源
-路径: /root/paddlejob/share-storage/gpfs/system-public/qinhuapeng/diffusers
-导入时间: 2026-05-27
-聚焦领域: 扩散模型（全量初步参考）
+路径: ../diffusers（相对于 PaddleFormers 项目根目录）
+导入时间: 2026-05-28
+聚焦领域: 全量（--refresh 更新，新增 hooks/guiders/training_utils 领域）
