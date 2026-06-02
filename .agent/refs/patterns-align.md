@@ -58,7 +58,7 @@ export FLAGS_use_accuracy_compatible_kernel=1 FLAGS_cudnn_deterministic=1
 参考：`align_qwen3_train.py`，`paddleformers/cli/train/sft/workflow.py:247-255`，`paddleformers/cli/cli.py:91-98`
 
 
-- `/align` 验证通过后，**不自动写入 test_modeling.py**；待用户显式运行其他指令时再固化
+**【禁止行为】`/align` 验证通过后，不得自动写入 `test_modeling.py`。** 必须等用户显式要求（如"写进测试"）才能固化；仅输出结论和可粘贴的代码块供用户确认。
 
 
 **失败后的调试层次**：

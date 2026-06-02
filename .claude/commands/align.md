@@ -520,11 +520,23 @@ Recommended action:
 2. **不修改 PaddleFormers 实现**；在报告中注明临时绕过方案（换精度 / 换 attention 实现）
 3. 将算子问题记录到 `.agent/refs/failures.md` 供后续参考
 
-## Step 9：固化为 CompatibilityTest
+## Step 9：输出对齐结论（不自动写入测试）
 
-对齐全部通过后，将逻辑写入 `tests/transformers/{model_name}/test_modeling.py`，遵循现有模式（参考 `tests/transformers/qwen3/test_modeling.py:411`）：
+**重要约束：对齐通过后，不自动写入 `test_modeling.py`。** 请等用户显式要求（如"帮我把这个写进测试"）再固化。
 
-```python
+对齐全部通过后，仅输出以下内容供用户确认：
+
+```
+=== 对齐结论 ===
+模型: {MODEL_CLASS}  dtype: {DTYPE}
+logits PASS  max_diff=...
+loss   PASS  diff=...
+train  PASS  trend_consistency=...
+
+如需固化为 CompatibilityTest，请运行：
+  /test-gen tests/transformers/{model_name}/test_modeling.py
+或告知 agent 将以下代码写入 test_modeling.py：
+
 class {ModelName}CompatibilityTest(unittest.TestCase):
     @classmethod
     @require_package("transformers", "torch")
@@ -538,6 +550,8 @@ class {ModelName}CompatibilityTest(unittest.TestCase):
         os.environ["FLAGS_cudnn_deterministic"] = "1"
         ...  # logits 对齐，rtol=1e-2, atol=1e-2（float32）
 ```
+
+**不要在未得到用户确认前主动调用 Write/Edit 修改 `test_modeling.py`。**
 
 ## Step 10：更新 failures.md（积累经验）
 
