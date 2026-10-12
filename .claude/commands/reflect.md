@@ -11,6 +11,15 @@
 - 手动修正了 Agent 生成的代码之后
 - 代码库新增了重要模块或发生了重构之后
 
+## Step 0：确定写入范围
+
+先检查仓库根目录是否存在 `AGENT-DEVELOPMENT.md`：
+
+- **存在：自我维护模式。** 本次复盘仅针对当前 agent/脚手架的开发；只能读取通用框架文件以形成结论，且只能写入 `.agent/self/reflect.md`。不得修改 `.agent/refs/`、`AGENTS.md`、`.codex/skills/`、`.claude/commands/` 或任何会部署到业务代码库的文件。输出必须说明“结果仅适用于当前 agent 开发”。
+- **不存在：业务代码库模式。** 按后续 Step 1 至 Step 6 执行，维护该业务代码库自己的 `.agent/refs/`。
+
+自我维护模式下，Step 1 至 Step 5.6 的观察维度仍可使用，但将所有可行动结论按 `.agent/self/reflect.md` 的主题格式合并；没有新观察时不写入占位内容，也不要创建 command 建议。
+
 ## Step 1：回顾近期任务
 
 回顾当前会话中执行过的任务，提取：

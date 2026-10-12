@@ -1,6 +1,6 @@
 # Codebase Agent 脚手架
 
-将 Claude Code 的能力与大型代码库结合，提供**扩展实现、测试生成、调用链追踪、遮蔽与恢复**能力，并通过持续学习机制形成代码库专属知识库。
+将 Codex 的能力与大型代码库结合，提供**扩展实现、测试生成、调用链追踪、遮蔽与恢复**能力，并通过持续学习机制形成代码库专属知识库。
 
 ## 快速开始
 
@@ -10,19 +10,20 @@
 
 ```
 your-project/
-├── CLAUDE.md                     ← 从本脚手架复制
-├── .claude/
-│   └── commands/
-│       ├── bootstrap.md          ← 从本脚手架复制
-│       ├── extend.md
-│       ├── test-gen.md
-│       ├── trace.md
-│       ├── gen-command.md
-│       ├── import-dep.md
-│       ├── ref-from.md
-│       ├── shadow.md
-│       ├── rollback.md
-│       └── reflect.md
+├── AGENTS.md                      ← Codex 项目行为规则
+├── .codex/
+│   └── skills/
+│       ├── bootstrap/SKILL.md     ← Codex 可直接加载的 skills
+│       ├── companion/SKILL.md
+│       ├── extend/SKILL.md
+│       ├── test-gen/SKILL.md
+│       ├── trace/SKILL.md
+│       ├── gen-command/SKILL.md
+│       ├── import-dep/SKILL.md
+│       ├── ref-from/SKILL.md
+│       ├── shadow/SKILL.md
+│       ├── rollback/SKILL.md
+│       └── reflect/SKILL.md
 └── .agent/
     ├── refs/
     │   ├── failures.md           ← 从本脚手架复制（空模板）
@@ -30,28 +31,32 @@ your-project/
     │   ├── deps.md               ← 从本脚手架复制（空模板）
 │   │   ├── refs-registry.md      ← 从本脚手架复制（空模板）
     │   └── command-suggestions.md ← 从本脚手架复制（空模板）
-    ├── shadows/                  ← 由 /shadow 自动创建，存放原始代码备份
-    └── refs/deps/                ← 由 /import-dep 自动创建，存放依赖库接口描述
+    ├── shadows/                  ← 由 `$shadow` 自动创建，存放原始代码备份
+    └── refs/deps/                ← 由 `$import-dep` 自动创建，存放依赖库接口描述
 ```
 
 或直接在项目根目录运行：
 
 ```bash
-cp -r /path/to/codebase-agent/CLAUDE.md .
-cp -r /path/to/codebase-agent/.claude .
-cp -r /path/to/codebase-agent/.agent .
+cp -r /path/to/codebase-agent/AGENTS.md .
+cp -r /path/to/codebase-agent/.codex .
+cp -r /path/to/codebase-agent/.claude .  # Codex skills 使用的完整工作流参考
+mkdir -p .agent/refs
+cp /path/to/codebase-agent/.agent/refs/{failures,deps,refs-registry,shadow-state,command-suggestions}.md .agent/refs/
 ```
+
+不要复制脚手架自身生成的 `.agent/refs/CODEBASE.md`、`symbols.md`、`conventions.md`、`patterns.md`，也不要复制 `AGENT-DEVELOPMENT.md` 或 `.agent/self/`；目标代码库应在部署后自行运行 `$bootstrap` 生成这些项目专属文档。
 
 ### 2. 初始化知识库（仅需一次）
 
 ```
-/bootstrap
+$bootstrap
 ```
 
 或指定路径：
 
 ```
-/bootstrap /path/to/your/project
+$bootstrap /path/to/your/project
 ```
 
 ### 3. 初次进入代码库：典型工作流
@@ -60,142 +65,148 @@ cp -r /path/to/codebase-agent/.agent .
 
 ```bash
 # Step 1：初始化知识库（分析目录结构、提取符号、归纳规范）
-/bootstrap
+$bootstrap
 
 # bootstrap 完成后，agent 会输出类似：
 # 建议的 trace 任务：
-# 1. /trace UserController.createUser  — 入口链路，了解请求如何流转
-# 2. /trace UserService.createUser     — 核心业务方法
-# 3. /trace UserRepository.save        — 持久化层实现
+# 1. $trace UserController.createUser  — 入口链路，了解请求如何流转
+# 2. $trace UserService.createUser     — 核心业务方法
+# 3. $trace UserRepository.save        — 持久化层实现
 
 # Step 2：按建议追踪核心调用链，建立对代码库的立体认知
-/trace UserController.createUser
+$trace UserController.createUser
 
 # Step 3：若依赖了外部库（如 common-utils），导入其接口描述
-/import-dep ../common-utils --name common-utils
+$import-dep ../common-utils --name common-utils
 
 # Step 4：若有参考库可借鉴实现思路（如另一个服务的缓存方案）
-/ref-from ../order-service --name order-service --focus "缓存层实现"
+$ref-from ../order-service --name order-service --focus "缓存层实现"
 
 # Step 5：让 agent 分析代码库，建议适合封装的定制 command
-/gen-command --suggest
+$gen-command --suggest
 # 输出示例：
 # - gen-controller：为新 API 生成 Controller + Service + Repository 三件套
 # - run-migration：清理 + 构建 + 执行数据库 migration
 
 # 生成建议中的 command
-/gen-command --create gen-controller
+$gen-command --create gen-controller
 
 # 或直接描述需求生成
-/gen-command 为每个新 API 接口生成 Controller + Service + Repository 三件套骨架
+$gen-command 为每个新 API 接口生成 Controller + Service + Repository 三件套骨架
 
 # Step 6：开始实现新功能
-/extend 实现 UserService.updateProfile 方法，支持修改昵称和头像
+$companion 实现 UserService.updateProfile 方法，支持修改昵称和头像
 
 # Step 7：生成测试
-/test-gen src/service/UserService.java 85
+$test-gen src/service/UserService.java 85
 
 # Step 8：任务结束后更新知识库
-/reflect
+$reflect
 ```
 
 ### 4. 开始使用
 
 ```bash
 # 实现一个方法
-/extend 实现 UserService.createUser 方法，要求持久化到数据库并发送欢迎邮件
+$extend 实现 UserService.createUser 方法，要求持久化到数据库并发送欢迎邮件
+
+# 陪跑开发：先生成计划和 checklist，再持续同步已验证的知识库
+$companion 实现 UserService.updateProfile，支持修改昵称和头像
+# `.agent/work/` 保存本次任务过程；`.agent/refs/` 只保存已经验证、可复用的项目知识。
 
 # 实现一个新类
-/extend 实现 EmailNotifier 类，实现 Notifier 接口
+$extend 实现 EmailNotifier 类，实现 Notifier 接口
 
 # 为某个文件生成测试，目标覆盖率 85%
-/test-gen src/service/UserService.java 85
+$test-gen src/service/UserService.java 85
 
 # 查看 agent 自动建议的定制 command
-/gen-command --list
+$gen-command --list
 
 # 分析代码库，主动生成建议（不主动调用时也会由 bootstrap/reflect 触发）
-/gen-command --suggest
+$gen-command --suggest
 
 # 生成某条建议
-/gen-command --create gen-controller
+$gen-command --create gen-controller
 
 # 直接描述需求，生成定制 command
-/gen-command 为每个新 API 接口生成 Controller + Service + Repository 三件套骨架
+$gen-command 为每个新 API 接口生成 Controller + Service + Repository 三件套骨架
 
 # 导入有调用关系的依赖库 API
-/import-dep ../codebase-a --name codebase-a
+$import-dep ../codebase-a --name codebase-a
 
 # 依赖库升级后刷新
-/import-dep ../codebase-a --name codebase-a --refresh
+$import-dep ../codebase-a --name codebase-a --refresh
 
 # 参考另一个代码库的实现模式（无调用关系）
-/ref-from ../codebase-b --name codebase-b
+$ref-from ../codebase-b --name codebase-b
 
 # 聚焦特定领域提取参考模式
-/ref-from ../codebase-b --name codebase-b --focus "缓存层实现,错误处理"
+$ref-from ../codebase-b --name codebase-b --focus "缓存层实现,错误处理"
 
 # 追踪方法调用链（自动识别跨库调用节点）
-/trace UserService.createUser
+$trace UserService.createUser
 
 # 追踪调用链（同时显示谁调用了它）
-/trace UserService.createUser --callers
+$trace UserService.createUser --callers
 
 # 遮蔽一个方法（替换为 stub，原始代码自动备份 + 生成功能描述）
-/shadow UserService.createUser --mode throw --reason "隔离排查依赖问题"
+$shadow UserService.createUser --mode throw --reason "隔离排查依赖问题"
 
 # 遮蔽整个类（stub 模式）
-/shadow PaymentService --mode log
+$shadow PaymentService --mode log
 
 # 遮蔽整个子包（stub 模式）
-/shadow com.example.service --mode no-op
+$shadow com.example.service --mode no-op
 
 # 遮蔽子包，同时中性化所有调用方的依赖（可选）
-/shadow com.example.service --mode no-op --strip-callers
+$shadow com.example.service --mode no-op --strip-callers
 
 # 完全卸载子包：删除目标文件，修改所有依赖方使代码库可编译
-/shadow com.example.service --mode unload
+$shadow com.example.service --mode unload
 
 # 恢复被遮蔽的方法（extend 自动检测 shadow 状态，读功能描述重写）
-/extend 实现 UserService.createUser
+$extend 实现 UserService.createUser
 
 # 直接回滚到原始备份代码（跳过 agent 重写）
-/rollback UserService.createUser
+$rollback UserService.createUser
 
 # 查看所有遮蔽状态 / 可回滚项
-/rollback --list
+$rollback --list
 
 # 更新知识库（建议每次任务后运行）
-/reflect
+$reflect
 ```
 
 ## 目录说明
 
 | 路径 | 说明 |
 |------|------|
-| `CLAUDE.md` | Agent 行为规则（前置检查、重试规则、输出规范） |
-| `.claude/commands/bootstrap.md` | 分析代码库，初始化 `.agent/refs/` |
-| `.claude/commands/extend.md` | 实现方法或类；若目标处于 shadow 状态，自动切换为恢复模式（支持包级） |
-| `.claude/commands/test-gen.md` | 生成测试，达到指定覆盖率 |
-| `.claude/commands/trace.md` | 静态调用链追踪 |
-| `.claude/commands/gen-command.md` | 扩展 agent 自身：自动建议或按需生成定制 command |
-| `.claude/commands/import-dep.md` | 导入有调用关系的依赖库公共 API，建立依赖接口层 |
-| `.claude/commands/ref-from.md` | 从无调用关系的参考库中提取实现模式和架构思路 |
-| `.claude/commands/shadow.md` | 遮蔽方法/类/子包为 stub；可选 `--strip-callers` 同时中性化调用方 |
-| `.claude/commands/rollback.md` | 直接将备份代码覆写回代码库，支持包级和调用方一并回滚 |
-| `.claude/commands/reflect.md` | 更新知识库，总结经验 |
+| `AGENTS.md` | Codex Agent 行为规则（前置检查、重试规则、输出规范） |
+| `.codex/skills/bootstrap/SKILL.md` | 分析代码库，初始化 `.agent/refs/` |
+| `.codex/skills/companion/SKILL.md` | 计划与 checklist 先行地陪跑开发，同步已验证的知识库 |
+| `.codex/skills/extend/SKILL.md` | 实现方法或类；若目标处于 shadow 状态，自动切换为恢复模式（支持包级） |
+| `.codex/skills/test-gen/SKILL.md` | 生成测试，达到指定覆盖率 |
+| `.codex/skills/trace/SKILL.md` | 静态调用链追踪 |
+| `.codex/skills/gen-command/SKILL.md` | 扩展 agent 自身：自动建议或按需生成定制 skill |
+| `.codex/skills/import-dep/SKILL.md` | 导入有调用关系的依赖库公共 API，建立依赖接口层 |
+| `.codex/skills/ref-from/SKILL.md` | 从无调用关系的参考库中提取实现模式和架构思路 |
+| `.codex/skills/shadow/SKILL.md` | 遮蔽方法/类/子包为 stub；可选 `--strip-callers` 同时中性化调用方 |
+| `.codex/skills/rollback/SKILL.md` | 直接将备份代码覆写回代码库，支持包级和调用方一并回滚 |
+| `.codex/skills/reflect/SKILL.md` | 更新知识库，总结经验 |
+| `.claude/commands/` | 保留的完整工作流参考；由上述 Codex skills 读取，不作为 Claude 配置使用 |
 | `.agent/refs/CODEBASE.md` | 代码库概览（由 bootstrap 生成） |
 | `.agent/refs/symbols.md` | 关键符号索引（由 bootstrap 生成） |
 | `.agent/refs/conventions.md` | 编码规范（由 bootstrap 生成） |
 | `.agent/refs/patterns.md` | 扩展模式（由 bootstrap 生成） |
 | `.agent/refs/failures.md` | 失败记录，持续更新 |
-| `.agent/refs/deps.md` | 依赖库注册表（有调用关系，由 /import-dep 维护） |
+| `.agent/refs/deps.md` | 依赖库注册表（有调用关系，由 `$import-dep` 维护） |
 | `.agent/refs/deps/{name}/` | 依赖库的接口描述（symbols + 可选 conventions） |
-| `.agent/refs/refs-registry.md` | 参考库注册表（无调用关系，由 /ref-from 维护） |
+| `.agent/refs/refs-registry.md` | 参考库注册表（无调用关系，由 `$ref-from` 维护） |
 | `.agent/refs/refs/{name}/` | 参考库的模式描述（patterns + 可选 conventions） |
 | `.agent/refs/command-suggestions.md` | 定制 command 建议清单（由 bootstrap/reflect/gen-command 写入） |
 | `.agent/refs/shadow-state.md` | 遮蔽状态记录（Active / Restored / Rolled Back） |
-| `.agent/shadows/` | 原始代码备份（由 /shadow 自动创建） |
+| `.agent/shadows/` | 原始代码备份（由 `$shadow` 自动创建） |
 
 ## 设计原则
 
