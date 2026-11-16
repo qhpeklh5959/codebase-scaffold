@@ -15,8 +15,8 @@
 
 ## 初始化接入的业务代码库
 
-1. 将 `AGENTS.md`、`.codex/`、`.claude/` 和 README 指定的空 refs 模板复制到目标仓库根目录；不要复制脚手架自身的 bootstrap 产物或 `.agent/self/`。`README.md:37-48`
-2. 执行 `$bootstrap`，生成代码库概览、符号、规范和模式文档。`README.md:46-56`
+1. 将 `AGENTS.md`、`.codex/`、`.claude/` 和 README 指定的空 refs 模板复制到目标仓库根目录；不要复制脚手架自身的 bootstrap 产物或 `.agent/self/`。`README.md:38-49`
+2. 执行 `$bootstrap`，生成代码库概览、符号、规范和模式文档。`README.md:47-57`
 3. 用 `$trace` 理解入口和核心路径；它只做静态分析。`.codex/skills/trace/SKILL.md:6-8`
 4. 如有外部调用依赖，用 `$import-dep` 导入公开 API；如只借鉴思路，用 `$ref-from` 导入模式。`.codex/skills/import-dep/SKILL.md:6-8` `.codex/skills/ref-from/SKILL.md:6-8`
 

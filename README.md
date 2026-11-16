@@ -1,6 +1,6 @@
 # Codebase Agent 脚手架
 
-将 Codex 的能力与大型代码库结合，提供**扩展实现、测试生成、调用链追踪、遮蔽与恢复**能力，并通过持续学习机制形成代码库专属知识库。
+将 Codex / Claude Code / DSH 的能力与大型代码库结合，提供**扩展实现、测试生成、调用链追踪、遮蔽与恢复**能力，并通过持续学习机制形成代码库专属知识库。
 
 ## 快速开始
 
@@ -10,10 +10,10 @@
 
 ```
 your-project/
-├── AGENTS.md                      ← Codex 项目行为规则
+├── AGENTS.md                      ← Codex / DSH 项目行为规则
 ├── .codex/
 │   └── skills/
-│       ├── bootstrap/SKILL.md     ← Codex 可直接加载的 skills
+│       ├── bootstrap/SKILL.md     ← Codex / DSH 可直接加载的 skills
 │       ├── companion/SKILL.md
 │       ├── extend/SKILL.md
 │       ├── test-gen/SKILL.md
@@ -23,7 +23,8 @@ your-project/
 │       ├── ref-from/SKILL.md
 │       ├── shadow/SKILL.md
 │       ├── rollback/SKILL.md
-│       └── reflect/SKILL.md
+│       ├── reflect/SKILL.md
+│       └── review/SKILL.md
 └── .agent/
     ├── refs/
     │   ├── failures.md           ← 从本脚手架复制（空模板）
@@ -40,7 +41,7 @@ your-project/
 ```bash
 cp -r /path/to/codebase-agent/AGENTS.md .
 cp -r /path/to/codebase-agent/.codex .
-cp -r /path/to/codebase-agent/.claude .  # Codex skills 使用的完整工作流参考
+cp -r /path/to/codebase-agent/.claude .  # Claude Code 命令入口（同时是 Codex/DSH 引用的共享工作流）
 mkdir -p .agent/refs
 cp /path/to/codebase-agent/.agent/refs/{failures,deps,refs-registry,shadow-state,command-suggestions}.md .agent/refs/
 ```
@@ -182,7 +183,7 @@ $reflect
 
 | 路径 | 说明 |
 |------|------|
-| `AGENTS.md` | Codex Agent 行为规则（前置检查、重试规则、输出规范） |
+| `AGENTS.md` | Codex / DSH Agent 行为规则（前置检查、重试规则、输出规范） |
 | `.codex/skills/bootstrap/SKILL.md` | 分析代码库，初始化 `.agent/refs/` |
 | `.codex/skills/companion/SKILL.md` | 计划与 checklist 先行地陪跑开发，同步已验证的知识库 |
 | `.codex/skills/extend/SKILL.md` | 实现方法或类；若目标处于 shadow 状态，自动切换为恢复模式（支持包级） |
@@ -194,7 +195,8 @@ $reflect
 | `.codex/skills/shadow/SKILL.md` | 遮蔽方法/类/子包为 stub；可选 `--strip-callers` 同时中性化调用方 |
 | `.codex/skills/rollback/SKILL.md` | 直接将备份代码覆写回代码库，支持包级和调用方一并回滚 |
 | `.codex/skills/reflect/SKILL.md` | 更新知识库，总结经验 |
-| `.claude/commands/` | 保留的完整工作流参考；由上述 Codex skills 读取，不作为 Claude 配置使用 |
+| `.codex/skills/review/SKILL.md` | 按 refs 审查当前改动，输出带引用的只读报告 |
+| `.claude/commands/` | Claude Code 的 `/` 命令入口；同时是 Codex/DSH skills 引用的共享工作流 |
 | `.agent/refs/CODEBASE.md` | 代码库概览（由 bootstrap 生成） |
 | `.agent/refs/symbols.md` | 关键符号索引（由 bootstrap 生成） |
 | `.agent/refs/conventions.md` | 编码规范（由 bootstrap 生成） |
@@ -223,3 +225,27 @@ $reflect
 - `extend` 恢复模式使用 agent 重写，设计语言一致但结果可能与原始有差异；`rollback` 直接复原原始代码，结果确定但可能与当前代码库存在兼容性问题
 - 建议将 `.agent/refs/` 提交到版本控制，团队共享知识库；`.agent/shadows/` 按需决定是否提交
 - `failures.md` 尤其值得保留，记录了代码库特有的"坑"
+
+## 三种 CLI 入口
+
+| CLI | 入口 | 调用方式 |
+|---|---|---|
+| Codex | `.codex/skills/<name>/SKILL.md` | `$name` |
+| Claude Code | `.claude/commands/<name>.md` | `/name` |
+| DSH | `.dsh/skills -> ../.codex/skills` | `skill` 工具 |
+
+三个入口共享同一份工作流：`.claude/commands/<name>.md` 保存完整步骤，`.codex/skills/<name>/SKILL.md` 是指向它的薄入口；DSH 通过软链复用 Codex 入口。
+
+部署到新仓库时，除上面的复制步骤外，还要为 DSH 建立软链：
+
+```bash
+mkdir -p .dsh && ln -s ../.codex/skills .dsh/skills
+```
+
+Windows 无软链权限时使用 `mklink /D .dsh\skills ..\.codex\skills`，或直接复制 `.codex/skills`。
+
+Claude Code 还需要项目根的行为规则 `CLAUDE.md`；目标仓库没有时一并复制：
+
+```bash
+cp /path/to/codebase-agent/CLAUDE.md .
+```

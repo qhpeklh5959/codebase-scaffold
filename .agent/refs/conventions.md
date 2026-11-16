@@ -26,5 +26,5 @@
 
 ## 当前仓库的文档风格
 
-- 面向用户的说明使用中文 Markdown，以小节、代码块和表格组织。`README.md:1-216`
+- 面向用户的说明使用中文 Markdown，以小节、代码块和表格组织。`README.md:1-251`
 - Codex skill 使用 YAML frontmatter（`name`、`description`）后接 Markdown 工作流。`.codex/skills/bootstrap/SKILL.md:1-13`
