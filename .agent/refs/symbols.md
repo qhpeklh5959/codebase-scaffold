@@ -14,14 +14,15 @@
 - `rollback`：显式请求时恢复遮蔽目标的原始备份；覆盖前需要确认。`.codex/skills/rollback/SKILL.md:2-8`
 - `reflect`：复盘近期工作并维护知识库与定制 skill 建议。`.codex/skills/reflect/SKILL.md:2-8`
 - `review`：按 refs 审查当前改动并输出带引用的只读报告；完整工作流在 `.claude/commands/review.md`。`.codex/skills/review/SKILL.md:1-10`
+- `update-ref`：拉取远端并快进本地，按变更更新 refs，并给出 trace 建议。`.codex/skills/update-ref/SKILL.md:1-10`
 
 ## 核心配置文件
 
 - `AGENTS.md`：定义所有任务的知识库前置检查、refs 维护规则和失败处理上限。`AGENTS.md:5-31`
-- `.claude/commands/`：Claude Code 的 `/` 命令入口，同时保存各 skill 的共享工作流。`README.md:199`
-- `.dsh/skills`：DSH 的 skill 发现入口，软链到 `../.codex/skills`。`README.md:229-251`
+- `.claude/commands/`：Claude Code 的 `/` 命令入口，同时保存各 skill 的共享工作流。`README.md:201`
+- `.dsh/skills`：DSH 的 skill 发现入口，软链到 `../.codex/skills`。`README.md:231-253`
 - `shadow-state.md`：`shadow`、`extend`、`rollback` 的唯一共享状态文件。`.agent/refs/shadow-state.md:1-9`
 
 ## 业务符号
 
-- 尚未发现业务源码、接口、抽象类或可执行入口；后续 `$bootstrap` 应在引入业务代码后补充本节。`README.md:1-251`
+- 尚未发现业务源码、接口、抽象类或可执行入口；后续 `$bootstrap` 应在引入业务代码后补充本节。`README.md:1-253`

@@ -6,7 +6,7 @@
 
 - `AGENTS.md` 定义会随框架部署到目标仓库的通用行为规则。`AGENTS.md:1-31`
 - `.codex/skills/*/SKILL.md` 是 Codex/DSH 的 skill 入口；其内容应指向对应 `.claude/commands/*.md` 完整工作流。`.codex/skills/bootstrap/SKILL.md:6-13`
-- `.claude/commands/` 是 Claude Code 的命令入口，也是共享工作流参考；修改流程时应同步检查对应 skill 的映射。`README.md:178-189`
+- `.claude/commands/` 是 Claude Code 的命令入口，也是共享工作流参考；修改流程时应同步检查对应 skill 的映射。`README.md:180-191`
 - `.agent/refs/` 是**当前仓库一次 bootstrap 的产物**。其中 `CODEBASE.md`、`symbols.md`、`conventions.md`、`patterns.md` 只描述这个脚手架，部署到业务仓库时不能复制。`.agent/refs/CODEBASE.md:1-31`
 - `.agent/self/` 是脚手架自我维护隔离区；`$reflect` 在此模式下只能更新该目录，复盘产物只适用于本仓库。`.agent/self/README.md:1-7`
 - `$companion` 在自我维护模式下同样只将计划、checklist 和过程性结论写入 `.agent/self/`；业务库模式才维护业务库的 refs。`.codex/skills/companion/SKILL.md:1-11`
