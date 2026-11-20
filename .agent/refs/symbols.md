@@ -14,7 +14,7 @@
 - `rollback`：显式请求时恢复遮蔽目标的原始备份；覆盖前需要确认。`.codex/skills/rollback/SKILL.md:2-8`
 - `reflect`：复盘近期工作并维护知识库与定制 skill 建议。`.codex/skills/reflect/SKILL.md:2-8`
 - `review`：按 refs 审查当前改动并输出带引用的只读报告；完整工作流在 `.claude/commands/review.md`。`.codex/skills/review/SKILL.md:1-10`
-- `update-ref`：拉取远端并快进本地，按变更更新 refs，并给出 trace 建议。`.codex/skills/update-ref/SKILL.md:1-10`
+- `update-ref`：拉取远端并快进本地（脏工作区自动暂存并恢复），按变更更新 refs 并给出 trace 建议。`.codex/skills/update-ref/SKILL.md:1-10`
 
 ## 核心配置文件
 

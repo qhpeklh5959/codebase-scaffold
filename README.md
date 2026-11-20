@@ -197,7 +197,7 @@ $reflect
 | `.codex/skills/rollback/SKILL.md` | 直接将备份代码覆写回代码库，支持包级和调用方一并回滚 |
 | `.codex/skills/reflect/SKILL.md` | 更新知识库，总结经验 |
 | `.codex/skills/review/SKILL.md` | 按 refs 审查当前改动，输出带引用的只读报告 |
-| `.codex/skills/update-ref/SKILL.md` | 拉取远端并快进本地，按变更更新 refs 并给出 trace 建议 |
+| `.codex/skills/update-ref/SKILL.md` | 拉取远端并快进本地（脏工作区自动暂存并恢复），按变更更新 refs 并给出 trace 建议 |
 | `.claude/commands/` | Claude Code 的 `/` 命令入口；同时是 Codex/DSH skills 引用的共享工作流 |
 | `.agent/refs/CODEBASE.md` | 代码库概览（由 bootstrap 生成） |
 | `.agent/refs/symbols.md` | 关键符号索引（由 bootstrap 生成） |
